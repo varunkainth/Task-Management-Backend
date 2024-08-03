@@ -177,3 +177,10 @@ dist
 
 # Environment variables 
 .env
+
+# Prettier Files
+.prettierignore
+.prettierrc
+
+#Random files
+Task.txt
