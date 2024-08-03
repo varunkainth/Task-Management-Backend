@@ -4,7 +4,7 @@ import User from "../models/User.js";
 
 export const CreateTask = async (req, res) => {
   try {
-    const { title, description, priority, dueDate, projectId } = req.body;
+    const { title, description, priority, dueDate, projectId, attachments } = req.body;
 
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
@@ -16,13 +16,23 @@ export const CreateTask = async (req, res) => {
     }
 
     // Create a new task
-    const newTask = new Task({
+    const newTaskData = {
       title,
       description: description || "",
       priority: priority || "Medium",
       dueDate: dueDate || null,
       projectId: projectId || null,
-    });
+    };
+
+    if (attachments && Array.isArray(attachments)) {
+      newTaskData.attachments = attachments.map((attachment) => ({
+        filename: attachment.filename,
+        url: attachment.url,
+        fileType: attachment.fileType,
+      }));
+    }
+
+    const newTask = new Task(newTaskData);
 
     if (projectId) {
       // Add the task to the project's tasks array
@@ -33,16 +43,13 @@ export const CreateTask = async (req, res) => {
     // Save the task
     const savedTask = await newTask.save();
 
-    res
-      .status(201)
-      .json({ message: "Task created successfully", task: savedTask });
+    res.status(201).json({ message: "Task created successfully", task: savedTask });
   } catch (err) {
     console.error("Task Create Error:", err);
-    res
-      .status(500)
-      .json({ message: "An error occurred while creating the task." });
+    res.status(500).json({ message: "An error occurred while creating the task." });
   }
 };
+
 
 export const getAllTask = async (req, res) => {
   try {
@@ -212,3 +219,53 @@ export const getTaskByProject = async (req, res) => {
   }
 };
 
+export const addAttachmentsToTask = async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const newAttachments = req.body.attachments;
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (newAttachments && Array.isArray(newAttachments)) {
+      task.attachments = task.attachments.concat(newAttachments);
+    }
+
+    await task.save();
+    
+    res.status(200).json(task);
+  } catch (error) {
+    console.error("Add Attachments Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const removeAttachmentFromTask = async (req, res) => {
+  try {
+    const taskId = req.params.taskId;
+    const attachmentId = req.params.attachmentId;
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    const updatedAttachments = task.attachments.filter(
+      (attachment) => attachment._id.toString() !== attachmentId
+    );
+
+    if (updatedAttachments.length === task.attachments.length) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    task.attachments = updatedAttachments;
+    await task.save();
+
+    res.status(200).json(task);
+  } catch (error) {
+    console.error("Remove Attachment Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
