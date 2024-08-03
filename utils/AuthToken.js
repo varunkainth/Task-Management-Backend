@@ -1,15 +1,15 @@
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken';
 
 const JWTGen = async ({ Time, Role, Id }) => {
   try {
-    const token = jwt.sign({ Time, Role, Id }, process.env.SECRET_KEY, {
+    const token = jwt.sign({ Role, Id }, process.env.JWT_SECRET_KEY, {
       expiresIn: Time,
     });
-    return token;
+    return token.toString();
   } catch (error) {
-    conosle.log("Token Gen Error: ", error);
+    console.log("Token Gen Error: ", error);
     return error.message;
   }
 };
 
-export default JWTGen
+export default JWTGen;

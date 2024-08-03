@@ -25,4 +25,13 @@ app.get("/", (req, res) => {
   res.send("Welcome to the API of Task Management Sysytem ");
 });
 
+
+
+//Other Routes 
+
+import UserRoutes from "./routes/user.js"
+
+app.use("/api/users",UserRoutes)
+
+
 export default app;
