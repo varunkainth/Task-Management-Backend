@@ -12,7 +12,7 @@ const taskSchema = new mongoose.Schema(
     priority: {
       type: String,
       enum: ["High", "Medium", "Low"],
-      default: "Medium",
+      default: "Low",
     },
     dueDate: { type: Date },
     dependencies: [{ type: mongoose.Schema.Types.ObjectId, ref: "Task" }],
@@ -22,7 +22,20 @@ const taskSchema = new mongoose.Schema(
       required: true,
     },
     comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
+    subTask: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SubTask",
+      },
+    ],
+    users: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
+
   {
     timestamps: true,
     versionKey: false,
@@ -30,4 +43,4 @@ const taskSchema = new mongoose.Schema(
 );
 
 const Task = mongoose.model("Task", taskSchema);
-export default Task
+export default Task;

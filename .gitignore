@@ -181,3 +181,6 @@ dist
 # Prettier Files
 .prettierignore
 .prettierrc
+
+#Random files
+Task.txt
