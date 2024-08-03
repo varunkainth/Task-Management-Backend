@@ -31,12 +31,10 @@ export const ProjectCreate = async (req, res) => {
       "createdBy",
       "name"
     );
-    return res
-      .status(201)
-      .json({
-        project: ProjectCreated,
-        message: "Project created successfully",
-      });
+    return res.status(201).json({
+      project: ProjectCreated,
+      message: "Project created successfully",
+    });
   } catch (error) {
     console.log("Project Create Error : ", error);
     return res.status(500).json({ message: "Failed to create project" });
@@ -109,5 +107,47 @@ export const deleteProject = async (req, res) => {
   } catch (error) {
     console.log("Delete Project Error : ", error);
     return res.status(500).json({ message: "Failed to delete project" });
+  }
+};
+
+export const deleteAllUserProjects = async (req, res) => {
+  try {
+    const userId = req.user._id; // Assumes user ID is available in req.user
+
+    // Fetch the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch and delete all projects associated with the user
+    const projects = await Project.find({ createdBy: userId });
+    if (projects.length > 0) {
+      await Project.deleteMany({ createdBy: userId });
+    }
+
+    // Update the user's role to "Member" if they have no projects left
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { role: "Member" } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(500).json({ message: "Failed to update user role" });
+    }
+
+    return res.status(200).json({
+      message: "All projects deleted and user role updated to Member",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Delete All User Projects Error:", error);
+    return res
+      .status(500)
+      .json({
+        message:
+          "An error occurred while deleting projects and updating user role",
+      });
   }
 };
