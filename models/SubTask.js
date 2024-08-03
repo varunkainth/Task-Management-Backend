@@ -14,7 +14,7 @@ const SubTaskSchema = new Schema(
       enum: ["Not Started", "In Progress", "Completed"],
       default: "Not Started",
     },
-    task_id: {
+    taskId: {
       type: Schema.Types.ObjectId,
       ref: "Task",
       required: true,
