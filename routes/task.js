@@ -1,4 +1,7 @@
-import express from "express";
+// routes/task.js
+import express from 'express';
+import TokenVerify from '../middleware/TokenVerification.js';
+import AdminCheck from '../middleware/CheckAdmin.js';
 import {
   CreateTask,
   getAllTask,
@@ -11,40 +14,85 @@ import {
   getTaskByProject,
   addAttachmentsToTask,
   removeAttachmentFromTask,
-} from "../controller/Task.js"; 
+} from '../controller/Task.js';
+import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.js';
+
 const router = express.Router();
 
-// Route to create a new task
-router.post("/", CreateTask);
+// Create a new task (Requires authentication)
+router.post('/tasks', TokenVerify, CreateTask);
 
-// Route to get all tasks with optional filters
-router.get("/", getAllTask);
+// Get all tasks with optional filters (Requires authentication)
+router.get('/tasks', TokenVerify, async (req, res) => {
+  try {
+    const cacheKey = 'allTasks';
+    const cachedTasks = await getCachedValue(cacheKey);
 
-// Route to get details of a specific task by ID
-router.get("/:id", getTaskDetails);
+    if (cachedTasks) {
+      return res.status(200).json(JSON.parse(cachedTasks));
+    }
 
-// Route to update a specific task by ID
-router.put("/:id", getUpdateTask);
+    const tasks = await getAllTask(req, res);
 
-// Route to delete a specific task by ID
-router.delete("/:id", deleteTask);
+    await cacheValue(cacheKey, JSON.stringify(tasks), 3600); // Cache for 1 hour
+    res.status(200).json(tasks);
+  } catch (error) {
+    console.error('Tasks List Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
-// Route to assign a task to a user
-router.put("/:id/assign/:userId", assignTask);
+// Get details of a specific task (Requires authentication)
+router.get('/tasks/:id', TokenVerify, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cacheKey = `task:${id}`;
+    const cachedTask = await getCachedValue(cacheKey);
 
-// Route to update the status of a specific task
-router.put("/:id/status", updateStatus);
+    if (cachedTask) {
+      return res.status(200).json(JSON.parse(cachedTask));
+    }
 
-// Route to get tasks assigned to a specific user
-router.get("/user/:userId", getTaskByUser);
+    const task = await getTaskDetails(req, res);
 
-// Route to get tasks associated with a specific project
-router.get("/project/:projectId", getTaskByProject);
+    await cacheValue(cacheKey, JSON.stringify(task), 3600); // Cache for 1 hour
+    res.status(200).json(task);
+  } catch (error) {
+    console.error('Task Details Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
-// Route to add attachments to a task
-router.put("/:id/attachments", addAttachmentsToTask);
+// Update a task (Requires authentication)
+router.put('/tasks/:id', TokenVerify, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await getUpdateTask(req, res);
 
-// Route to remove an attachment from a task
-router.delete("/:taskId/attachments/:attachmentId", removeAttachmentFromTask);
+    // Invalidate cache after update
+    await deleteCachedValue(`task:${id}`);
+    await deleteCachedValue('allTasks'); // Invalidate the list cache
+  } catch (error) {
+    console.error('Update Task Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Delete a task (Requires authentication and possibly admin role)
+router.delete('/tasks/:id', TokenVerify, AdminCheck, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteTask(req, res);
+
+    // Invalidate cache after deletion
+    await deleteCachedValue(`task:${id}`);
+    await deleteCachedValue('allTasks'); // Invalidate the list cache
+  } catch (error) {
+    console.error('Delete Task Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Other task routes...
 
 export default router;

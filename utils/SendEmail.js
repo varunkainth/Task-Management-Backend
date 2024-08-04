@@ -7,8 +7,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
       from: process.env.EMAIL_USER,
       to,
       subject,
-      text,
-      html, // HTML formatted email (optional)
+      html, 
     };
 
     await transporter.sendMail(mailOptions);

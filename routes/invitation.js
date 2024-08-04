@@ -1,36 +1,125 @@
-import express from "express";
+// routes/invitation.js
+import { Router } from "express";
 import {
   createInvitation,
-  acceptInvitation,
-  rejectInvitation,
-  getAllInvitations,
+  deleteInvitationById,
+  getAllInvitationsByProjectId,
   getInvitationById,
+  updateInvitation,
 } from "../controller/Invitation.js";
 import TokenVerify from "../middleware/TokenVerification.js";
+import AdminCheck from "../middleware/CheckAdmin.js";
+import {
+  cacheValue,
+  getCachedValue,
+  deleteCachedValue,
+} from "../config/redis.js";
 
-const router = express.Router();
+const router = Router();
 
-// Route to create a new invitation
-router.post("/invitations", TokenVerify, createInvitation);
-
-// Route to accept an invitation
-router.patch(
-  "/invitations/:invitationId/accept",
+// Create an invitation
+router.post(
+  "/projects/:projectId/invitations",
   TokenVerify,
-  acceptInvitation
+  async (req, res) => {
+    try {
+      await createInvitation(req, res);
+
+      // Invalidate the cache for the specific project invitations
+      const { projectId } = req.params;
+      await deleteCachedValue(`project:${projectId}:invitations`);
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
 );
 
-// Route to reject an invitation
-router.patch(
-  "/invitations/:invitationId/reject",
+// Get all invitations for a specific project
+router.get("/projects/:projectId/invitations", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const cacheKey = `project:${projectId}:invitations`;
+    const cachedInvitations = await getCachedValue(cacheKey);
+
+    if (cachedInvitations) {
+      return res.status(200).json(JSON.parse(cachedInvitations));
+    }
+
+    const invitations = await getAllInvitationsByProjectId(req, res);
+
+    await cacheValue(cacheKey, JSON.stringify(invitations), 3600); // Cache for 1 hour
+    res.status(200).json(invitations);
+  } catch (error) {
+    console.error("Error fetching all invitations for project:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Get an invitation by ID
+router.get("/invitations/:invitationId", async (req, res) => {
+  try {
+    const { invitationId } = req.params;
+    const cacheKey = `invitation:${invitationId}`;
+    const cachedInvitation = await getCachedValue(cacheKey);
+
+    if (cachedInvitation) {
+      return res.status(200).json(JSON.parse(cachedInvitation));
+    }
+
+    const invitation = await getInvitationById(req, res);
+
+    await cacheValue(cacheKey, JSON.stringify(invitation), 3600); // Cache for 1 hour
+    res.status(200).json(invitation);
+  } catch (error) {
+    console.error("Error fetching invitation by ID:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Update an invitation's status
+router.put(
+  "/invitations/:invitationId",
   TokenVerify,
-  rejectInvitation
+  AdminCheck,
+  async (req, res) => {
+    try {
+      const { invitationId } = req.params;
+      await updateInvitation(req, res);
+
+      // Invalidate cache after update
+      await deleteCachedValue(`invitation:${invitationId}`);
+      // Also, invalidate the cache for the project invitations list
+      const invitation = await getInvitationById(req, res);
+      const { projectId } = invitation; // Assume invitation contains the projectId
+      await deleteCachedValue(`project:${projectId}:invitations`);
+    } catch (error) {
+      console.error("Error updating invitation:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
 );
 
-// Route to get all invitations for the authenticated user
-router.get("/invitations", TokenVerify, getAllInvitations);
+// Delete an invitation by ID
+router.delete(
+  "/invitations/:invitationId",
+  TokenVerify,
+  AdminCheck,
+  async (req, res) => {
+    try {
+      const { invitationId } = req.params;
+      const invitation = await deleteInvitationById(req, res);
 
-// Route to get a specific invitation by ID
-router.get("/invitations/:invitationId", TokenVerify, getInvitationById);
+      // Invalidate cache after deletion
+      await deleteCachedValue(`invitation:${invitationId}`);
+      // Also, invalidate the cache for the project invitations list
+      const { projectId } = invitation; // Assume invitation contains the projectId
+      await deleteCachedValue(`project:${projectId}:invitations`);
+    } catch (error) {
+      console.error("Error deleting invitation:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+);
 
 export default router;

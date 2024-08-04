@@ -35,3 +35,5 @@ const PasswordResetToken = mongoose.model(
   "PasswordResetToken",
   passwordResetTokenSchema
 );
+
+export default PasswordResetToken
