@@ -1,4 +1,4 @@
-# task-management
+# Task-management
 
 To install dependencies:
 

@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const SubTaskSchema = new Schema(
+const subTaskSchema = new Schema(
   {
     title: {
       type: String,
@@ -13,19 +13,23 @@ const SubTaskSchema = new Schema(
       type: String,
       enum: ["Not Started", "In Progress", "Completed"],
       default: "Not Started",
+      index: true, // Index for faster lookups by status
     },
     taskId: {
       type: Schema.Types.ObjectId,
       ref: "Task",
       required: true,
+      index: true, // Index for faster lookups by taskId
     },
     priority: {
       type: String,
       enum: ["Low", "Medium", "High"],
       default: "Medium",
+      index: true, // Index for sorting by priority
     },
     dueDate: {
       type: Date,
+      index: true, // Index for querying by dueDate
     },
     attachments: [
       {
@@ -53,5 +57,6 @@ const SubTaskSchema = new Schema(
     versionKey: false,
   }
 );
-const SubTask = mongoose.model("SubTask", SubTaskSchema);
+
+const SubTask = mongoose.model("SubTask", subTaskSchema);
 export default SubTask;
