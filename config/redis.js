@@ -10,6 +10,9 @@ client.on('error', (err) => {
 
 // Connect to Redis and handle potential connection errors
 const connectRedis = async () => {
+   if (client.isOpen) {
+    console.log('Redis client is already connected.');
+    return;
   try {
     await client.connect();
     console.log('Connected to Redis');
