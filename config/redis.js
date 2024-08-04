@@ -13,6 +13,7 @@ const connectRedis = async () => {
    if (client.isOpen) {
     console.log('Redis client is already connected.');
     return;
+   }
   try {
     await client.connect();
     console.log('Connected to Redis');
