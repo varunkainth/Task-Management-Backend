@@ -8,6 +8,8 @@ import bcrypt from "bcryptjs";
 export const userRegister = async (req, res) => {
   try {
     const { name, password, email, phoneNumber, gender, dob } = req.body;
+    // print all values
+    console.log(name, password, email, phoneNumber, gender, dob);
 
     // Validate input
     if (
