@@ -1,20 +1,23 @@
 import mongoose, { Schema } from "mongoose";
-import bcrypt from "bcryptjs"
+import bcrypt from "bcryptjs";
 
 const userSchema = new Schema(
   {
     name: {
       type: String,
       required: true,
+      index: true, // Add index if searching by name is common
     },
     id: {
       type: String,
       required: true,
+      unique: true, // Ensure ID is unique
     },
     email: {
       type: String,
       required: true,
-      unique: true,
+      unique: true, // Index for faster lookups
+      match: [/.+@.+\..+/, 'Please enter a valid email address'], // Email format validation
     },
     password: {
       type: String,
@@ -24,6 +27,7 @@ const userSchema = new Schema(
       type: String,
       enum: ["Admin", "Member"],
       default: "Member",
+      index: true, // Add index if filtering by role is common
     },
     projects: [
       {
@@ -49,6 +53,7 @@ const userSchema = new Schema(
     phoneNumber: {
       type: String,
       required: true,
+      match: [/^\d{10}$/, 'Please enter a valid 10-digit phone number'], // Phone number format validation
     },
     profilePic: {
       type: String,
@@ -64,7 +69,11 @@ const userSchema = new Schema(
 userSchema.pre("save", async function (next) {
   const user = this;
   if (user.isModified("password")) {
-    user.password = await bcrypt.hash(user.password, 11);
+    try {
+      user.password = await bcrypt.hash(user.password, 11);
+    } catch (err) {
+      return next(err);
+    }
   }
   next();
 });
