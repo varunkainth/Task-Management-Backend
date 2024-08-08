@@ -1,72 +1,86 @@
-import redis from 'redis';
+import { createClient } from 'redis';
+import dotenv from "dotenv"
+dotenv.config()
 
-// Initialize Redis client
-const client = redis.createClient({
-  url: "redis://127.0.0.1:6379"
+// Configuration for Redis connection on Render
+const redisConfig = {
+  url: process.env.REDIS_URL,
+};
 
+// Create a Redis client
+const client = createClient(redisConfig);
+
+// Connect to Redis server
+client.on('connect', () => {
+  console.log('Connected to Redis server');
 });
 
-// Error handling
 client.on('error', (err) => {
-  console.error('Redis error:', err);
+  console.error('Redis connection error:', err);
 });
 
-// Connect to Redis and handle potential connection errors
-const connectRedis = async () => {
-  if (!client.isOpen) {
-    try {
-      await client.connect();
-      console.log('Connected to Redis');
-    } catch (err) {
-      console.error('Error connecting to Redis:', err);
-      process.exit(1);
-    }
-  }
-};
+// Handle reconnection logic
+client.on('reconnecting', () => {
+  console.log('Reconnecting to Redis server...');
+});
 
-
-
-// Call connectRedis to ensure connection is established before using the client
-connectRedis();
-
-// Caching functions
-const cacheValue = async (key, value, expiration = 3600) => {
+/**
+ * Cache a value in Redis
+ * @param {string} key - The key under which the value should be stored
+ * @param {string} value - The value to be stored
+ * @param {number} [expiry] - Optional expiry time in seconds
+ */
+const cacheValue = async (key, value, expiry) => {
   try {
-    await client.set(key, value, 'EX', expiration);
+    if (expiry) {
+      await client.set(key, value, { EX: expiry });
+      console.log(`Value cached with key: ${key} and expiry: ${expiry} seconds`);
+    } else {
+      await client.set(key, value);
+      console.log(`Value cached with key: ${key}`);
+    }
   } catch (err) {
-    console.error('Error caching value:', err);
+    console.error(`Error caching value for key ${key}:`, err);
   }
 };
 
+/**
+ * Get a cached value from Redis
+ * @param {string} key - The key of the cached value
+ * @returns {Promise<string|null>} - The cached value or null if not found
+ */
 const getCachedValue = async (key) => {
   try {
-    return await client.get(key);
+    const result = await client.get(key);
+    console.log(`Cached value retrieved for key: ${key}`);
+    return result;
   } catch (err) {
-    console.error('Error retrieving cached value:', err);
+    console.error(`Error getting cached value for key ${key}:`, err);
+    throw err;
   }
 };
 
+/**
+ * Delete a cached value from Redis
+ * @param {string} key - The key of the cached value to delete
+ */
 const deleteCachedValue = async (key) => {
   try {
-    await client.del(key);
+    const result = await client.del(key);
+    if (result === 1) {
+      console.log(`Cached value deleted for key: ${key}`);
+    } else {
+      console.log(`No cached value found for key: ${key}`);
+    }
   } catch (err) {
-    console.error('Error deleting cached value:', err);
+    console.error(`Error deleting cached value for key ${key}:`, err);
   }
 };
 
-// Graceful shutdown of the Redis client
-const shutdown = async () => {
-  console.log('Shutting down Redis client...');
-  try {
-    await client.quit();
-  } catch (err) {
-    console.error('Error quitting Redis client:', err);
-  } finally {
-    process.exit(0);
-  }
+// Export the client and functions for use in other parts of the application
+export {
+  client,
+  cacheValue,
+  getCachedValue,
+  deleteCachedValue,
 };
-
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
-
-export { client, cacheValue, getCachedValue, deleteCachedValue };

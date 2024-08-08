@@ -1,4 +1,3 @@
-// routes/project.js
 import { Router } from "express";
 import AdminCheck from "../middleware/CheckAdmin.js";
 import {
@@ -7,15 +6,27 @@ import {
   getAllProject,
   getProjectById,
   ProjectCreate,
-  updateProject,
+  updateProject
 } from "../controller/Project.js";
 import TokenVerify from "../middleware/TokenVerification.js";
-import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.js';
+import { cacheValue, getCachedValue, deleteCachedValue } from "../config/redis.js";
 
 const router = Router();
 
 // Create a project
-router.post("/projects", TokenVerify, ProjectCreate);
+router.post("/projects", TokenVerify, async (req, res) => {
+  try {
+    const newProject = await ProjectCreate(req, res);
+
+    // Invalidate the cache for the project list
+    await deleteCachedValue('allProjects');
+
+    res.status(201).json(newProject);
+  } catch (error) {
+    console.error('Error creating project:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
 // Get all projects
 router.get("/projects", TokenVerify, async (req, res) => {
@@ -62,11 +73,13 @@ router.get("/projects/:id", TokenVerify, async (req, res) => {
 router.put("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { id } = req.params;
-    await updateProject(req, res);
+    const updatedProject = await updateProject(req, res);
 
     // Invalidate cache after update
     await deleteCachedValue(`project:${id}`);
     await deleteCachedValue('allProjects'); // Invalidate the list cache
+
+    res.status(200).json(updatedProject);
   } catch (error) {
     console.error('Error updating project:', error);
     res.status(500).json({ message: 'Internal Server Error' });
@@ -82,6 +95,8 @@ router.delete("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
     // Invalidate cache after deletion
     await deleteCachedValue(`project:${id}`);
     await deleteCachedValue('allProjects'); // Invalidate the list cache
+
+    res.status(200).json({ message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Error deleting project:', error);
     res.status(500).json({ message: 'Internal Server Error' });
@@ -89,21 +104,18 @@ router.delete("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
 });
 
 // Delete all projects for a user
-router.delete(
-  "/users/projects",
-  TokenVerify,
-  AdminCheck,
-  async (req, res) => {
-    try {
-      await deleteAllUserProjects(req, res);
+router.delete("/users/projects", TokenVerify, AdminCheck, async (req, res) => {
+  try {
+    await deleteAllUserProjects(req, res);
 
-      // Invalidate cache after deletion
-      await deleteCachedValue('allProjects'); // Invalidate the list cache
-    } catch (error) {
-      console.error('Error deleting all user projects:', error);
-      res.status(500).json({ message: 'Internal Server Error' });
-    }
+    // Invalidate cache after deletion
+    await deleteCachedValue('allProjects'); // Invalidate the list cache
+
+    res.status(200).json({ message: 'All user projects deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting all user projects:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
-);
+});
 
 export default router;

@@ -1,13 +1,13 @@
 {
   "name": "task-management",
-  "module": "index.js",
+  "module": "api/index.js",
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest",
     "nodemon": "^3.1.4"
   },
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon api/index.js"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
