@@ -1,4 +1,3 @@
-// routes/comment.js
 import { Router } from "express";
 import {
   createComment,
@@ -8,7 +7,7 @@ import {
   updateComment
 } from "../controller/Comment.js";
 import TokenVerify from "../middleware/TokenVerification.js";
-import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.js';
+import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.js'; // Updated import
 
 const router = Router();
 

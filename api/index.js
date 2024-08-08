@@ -1,7 +1,7 @@
-import app from "./app.js";
-import DataBaseConnection from "./config/DbConnection.js";
+import app from "../app.js";
+import DataBaseConnection from "../config/DbConnection.js";
 import dotenv from "dotenv";
-import { client as redisClient } from "./config/redis.js"; // Import Redis client
+import { client as redisClient } from "../config/redis.js"; // Import Redis client
 
 dotenv.config();
 

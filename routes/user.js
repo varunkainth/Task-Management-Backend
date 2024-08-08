@@ -17,15 +17,12 @@ const router = Router();
 router.put("/users/update", TokenVerify, async (req, res) => {
   try {
     const response = await updateDetails(req, res);
-
-    // Cache or update the cache if needed
-    const userId = req.user._id; // Assume userId is available in the request
+    const userId = req.user._id;
     await deleteCachedValue(`user:${userId}:details`); // Invalidate user details cache
-
     res.status(200).json(response);
   } catch (error) {
     console.error('Error updating user details:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: 'An error occurred while updating user details.' });
   }
 });
 
@@ -33,15 +30,12 @@ router.put("/users/update", TokenVerify, async (req, res) => {
 router.put("/users/update-password", TokenVerify, async (req, res) => {
   try {
     const response = await updatePassword(req, res);
-
-    // Optional: Invalidate cache if needed
-    const userId = req.user._id; // Assume userId is available in the request
-    await deleteCachedValue(`user:${userId}:details`);
-
+    const userId = req.user._id;
+    await deleteCachedValue(`user:${userId}:details`); // Invalidate user details cache
     res.status(200).json(response);
   } catch (error) {
     console.error('Error updating user password:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: 'An error occurred while updating user password.' });
   }
 });
 
@@ -53,15 +47,12 @@ router.post(
   async (req, res) => {
     try {
       const response = await updateProfilePic(req, res);
-
-      // Cache or update the cache if needed
-      const userId = req.user._id; // Assume userId is available in the request
-      await deleteCachedValue(`user:${userId}:details`);
-
+      const userId = req.user._id;
+      await deleteCachedValue(`user:${userId}:details`); // Invalidate user details cache
       res.status(200).json(response);
     } catch (error) {
       console.error('Error updating profile picture:', error);
-      res.status(500).json({ message: 'Internal Server Error' });
+      res.status(500).json({ message: 'An error occurred while updating profile picture.' });
     }
   }
 );
@@ -70,15 +61,12 @@ router.post(
 router.delete("/users/delete", TokenVerify, async (req, res) => {
   try {
     const response = await deleteUser(req, res);
-
-    // Invalidate user cache
-    const userId = req.user._id; // Assume userId is available in the request
-    await deleteCachedValue(`user:${userId}:details`);
-
+    const userId = req.user._id;
+    await deleteCachedValue(`user:${userId}:details`); // Invalidate user details cache
     res.status(200).json(response);
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: 'An error occurred while deleting the user.' });
   }
 });
 
@@ -94,11 +82,10 @@ router.get("/users", TokenVerify, async (req, res) => {
 
     const response = await getAllUsers(req, res);
     await cacheValue(cacheKey, JSON.stringify(response), 600); // Cache for 10 minutes
-
     res.status(200).json(response);
   } catch (error) {
     console.error('Error fetching all users:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: 'An error occurred while fetching all users.' });
   }
 });
 
@@ -115,11 +102,10 @@ router.get("/users/:id", TokenVerify, async (req, res) => {
 
     const response = await getUserDetails(req, res);
     await cacheValue(cacheKey, JSON.stringify(response), 300); // Cache for 5 minutes
-
     res.status(200).json(response);
   } catch (error) {
     console.error('Error fetching user details:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: 'An error occurred while fetching user details.' });
   }
 });
 

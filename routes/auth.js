@@ -10,7 +10,8 @@ import {
   userRegister,
   verifyPasswordResetToken,
 } from "../controller/Auth.js";
-import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.js'
+import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.js'; // Updated import to match your redis.js
+
 const router = Router();
 
 // User registration route
@@ -26,7 +27,7 @@ router.post("/logout", TokenVerify, async (req, res) => {
     await userLogout(req, res);
 
     // Invalidate user session cache if needed
-    const userId = req.user._id; // Assume userId is available in the request
+    const userId = req.user._id; // Ensure userId is available in the request
     await deleteCachedValue(`user:${userId}:session`);
 
     res.status(200).json({ message: "Logged out successfully" });
@@ -92,7 +93,7 @@ router.post("/revoke-refresh-token", TokenVerify, async (req, res) => {
     const response = await revokeRefreshToken(req, res);
 
     // Invalidate cache for the revoked refresh token
-    const userId = req.userId; // Assume userId is available in the request
+    const userId = req.user._id; // Ensure userId is available in the request
     await deleteCachedValue(`user:${userId}:refreshToken`);
 
     res.status(200).json(response);
