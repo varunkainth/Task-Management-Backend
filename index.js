@@ -1,7 +1,9 @@
 import app from "./app.js";
 import DataBaseConnection from "./config/DbConnection.js";
 import dotenv from "dotenv";
-import { client as redisClient } from "./config/redis.js"; // Import Redis client
+import { client as redisClient } from "./config/redis.js";
+import admin from "firebase-admin"
+import FirebaseServiceCred from "./config/FireseBaseCred.js";
 
 dotenv.config();
 
@@ -19,14 +21,20 @@ const startServer = async () => {
     }
     console.log('Connected to Redis');
 
+    // FireBase Initialize
+    admin.initializeApp({
+      credential: admin.credential.cert(FirebaseServiceCred)
+    })
+    console.log('Firebase Admin initialized successfully');
+
     // Start the server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log('Redis URL:', process.env.REDIS_URL);
     });
   } catch (err) {
-    console.error("Error while connecting to the database or Redis:", err);
-    process.exit(1); // Exit the process with an error code
+    console.error("Error while connecting to the database or Redis or FireBase:", err);
+    process.exit(1); 
   }
 };
 
