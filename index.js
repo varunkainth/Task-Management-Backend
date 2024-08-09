@@ -2,7 +2,7 @@ import app from "./app.js";
 import DataBaseConnection from "./config/DbConnection.js";
 import dotenv from "dotenv";
 import { client as redisClient } from "./config/redis.js";
-import admin from "firebase-admin"
+import admin from "firebase-admin";
 import FirebaseServiceCred from "./config/FireseBaseCred.js";
 
 dotenv.config();
@@ -21,11 +21,17 @@ const startServer = async () => {
     }
     console.log('Connected to Redis');
 
-    // FireBase Initialize
-    admin.initializeApp({
-      credential: admin.credential.cert(FirebaseServiceCred)
-    })
-    console.log('Firebase Admin initialized successfully');
+    // Initialize Firebase
+    try {
+      console.log('Initializing Firebase Admin...');
+      admin.initializeApp({
+        credential: admin.credential.cert(FirebaseServiceCred),
+      });
+      console.log('Firebase Admin initialized successfully');
+    } catch (error) {
+      console.error('Error initializing Firebase Admin:', error);
+      throw error;
+    }
 
     // Start the server
     app.listen(PORT, () => {
@@ -33,8 +39,8 @@ const startServer = async () => {
       console.log('Redis URL:', process.env.REDIS_URL);
     });
   } catch (err) {
-    console.error("Error while connecting to the database or Redis or FireBase:", err);
-    process.exit(1); 
+    console.error("Error while connecting to the database or Redis or Firebase:", err);
+    process.exit(1);
   }
 };
 
@@ -49,11 +55,11 @@ const shutdown = async () => {
       await redisClient.quit();
     }
     console.log('Redis client disconnected');
-    
+
     // Close database connection
     await DataBaseConnection.close(); // Assuming you have a close method
     console.log('Database connection closed');
-    
+
     process.exit(0);
   } catch (err) {
     console.error('Error during shutdown:', err);
