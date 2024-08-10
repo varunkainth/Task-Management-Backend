@@ -1,5 +1,5 @@
 import app from "../app.js";
-import DataBaseConnection from "../config/DbConnection.js";
+import {DataBaseConnection,DataBaseConnectionClose} from "../config/DbConnection.js";
 import dotenv from "dotenv";
 import { client as redisClient } from "../config/redis.js";
 import admin from "firebase-admin";
@@ -60,7 +60,7 @@ const shutdown = async () => {
     console.log("Redis client disconnected");
 
     // Close database connection
-    await DataBaseConnection.close(); // Assuming you have a close method
+    await DataBaseConnectionClose(); // Assuming you have a close method
     console.log("Database connection closed");
 
     process.exit(0);
