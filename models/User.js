@@ -17,7 +17,7 @@ const userSchema = new Schema(
       type: String,
       required: true,
       unique: true, // Index for faster lookups
-      match: [/.+@.+\..+/, 'Please enter a valid email address'], // Email format validation
+      match: [/.+@.+\..+/, "Please enter a valid email address"], // Email format validation
     },
     password: {
       type: String,
@@ -53,11 +53,22 @@ const userSchema = new Schema(
     phoneNumber: {
       type: String,
       required: true,
-      match: [/^\d{10}$/, 'Please enter a valid 10-digit phone number'], // Phone number format validation
+      match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"], // Phone number format validation
     },
     profilePic: {
       type: String,
       required: true,
+    },
+    uid: {
+      type: String,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    provider: {
+      type: String,
+      enum: ["github", "google", "local"],
     },
   },
   {
