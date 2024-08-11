@@ -62,12 +62,20 @@ export const userRegister = async (req, res) => {
     await user.save();
 
     // Create tokens
-    const accessToken = JWTGen({ Id: user._id, Role: "Member", Time: "1h" });
-    const refreshToken = JWTGen({ Id: user._id, Role: "Member", Time: "30d" });
+    const accessToken = await JWTGen({
+      Id: user._id,
+      Role: "Member",
+      Time: "1h",
+    });
+    const refreshToken = await JWTGen({
+      Id: user._id,
+      Role: "Member",
+      Time: "30d",
+    });
 
     // Hash refresh token
     const hashedRefreshToken = await bcrypt.hash(String(refreshToken), 11);
-
+    console.log(hashedRefreshToken);
     // Save refresh token in the database
     await RefreshTokenModel.create({
       userId: user._id,
