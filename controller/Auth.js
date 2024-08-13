@@ -106,13 +106,13 @@ export const userRegister = async (req, res) => {
 
 export const userLogin = async (req, res) => {
   try {
-    const { id, password } = req.body;
+    const { id, email, password } = req.body;
 
     if (!id || !password) {
       return res.status(400).json({ message: "Please fill in all fields" });
     }
 
-    const user = await User.findOne({ id });
+    const user = await User.findOne({ $or: [{ email }, { id }] });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -518,6 +518,25 @@ export const GithubSignUp = async (req, res) => {
     }
   } catch (err) {
     console.error("Github Sign-Up Error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const VerifyEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User Not Found", success: false });
+    }
+    return res.status(200).json({
+      message: "Email Verified Successfully",
+      success: true,
+    });
+  } catch (err) {
+    console.error("Verify Email Error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
