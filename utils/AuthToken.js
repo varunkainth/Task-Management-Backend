@@ -5,7 +5,8 @@ const JWTGen = async ({ Time, Role, Id }) => {
     const token = jwt.sign({ Role, Id }, process.env.JWT_SECRET_KEY, {
       expiresIn: Time,
     });
-    return token.toString();
+    console.log(token)
+    return token;
   } catch (error) {
     console.log("Token Gen Error: ", error);
     return error.message;

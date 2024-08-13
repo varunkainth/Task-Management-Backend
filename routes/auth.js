@@ -2,15 +2,22 @@ import { Router } from "express";
 import TokenVerify from "../middleware/TokenVerification.js";
 import {
   createPasswordResetToken,
+  GithubSignUp,
+  GoogleSignup,
   refreshToken,
   revokeRefreshToken,
   usePasswordResetToken,
   userLogin,
   userLogout,
   userRegister,
+  VerifyEmail,
   verifyPasswordResetToken,
 } from "../controller/Auth.js";
-import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.js'; // Updated import to match your redis.js
+import {
+  cacheValue,
+  getCachedValue,
+  deleteCachedValue,
+} from "../config/redis.js";
 
 const router = Router();
 
@@ -32,8 +39,8 @@ router.post("/logout", TokenVerify, async (req, res) => {
 
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
-    console.error('Error during logout:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error during logout:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -44,8 +51,8 @@ router.post("/password-reset-token", async (req, res) => {
     // Cache or store the response as needed
     res.status(200).json(response);
   } catch (error) {
-    console.error('Error creating password reset token:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error creating password reset token:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -55,8 +62,8 @@ router.post("/verify-password-reset-token", async (req, res) => {
     const response = await verifyPasswordResetToken(req, res);
     res.status(200).json(response);
   } catch (error) {
-    console.error('Error verifying password reset token:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error verifying password reset token:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -66,8 +73,8 @@ router.post("/use-password-reset-token", async (req, res) => {
     const response = await usePasswordResetToken(req, res);
     res.status(200).json(response);
   } catch (error) {
-    console.error('Error using password reset token:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error using password reset token:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -75,15 +82,15 @@ router.post("/use-password-reset-token", async (req, res) => {
 router.post("/refresh-token", async (req, res) => {
   try {
     const response = await refreshToken(req, res);
-    
+
     // Cache the new access token
     const { userId, accessToken } = response;
     await cacheValue(`user:${userId}:accessToken`, accessToken, 3600); // Cache for 1 hour
 
     res.status(200).json(response);
   } catch (error) {
-    console.error('Error refreshing token:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error refreshing token:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
@@ -98,9 +105,13 @@ router.post("/revoke-refresh-token", TokenVerify, async (req, res) => {
 
     res.status(200).json(response);
   } catch (error) {
-    console.error('Error revoking refresh token:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error revoking refresh token:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+router.route("/google").post(GoogleSignup);
+router.route("/github").post(GithubSignUp);
+router.route("/verify/email").post(VerifyEmail);
 
 export default router;
