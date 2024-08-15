@@ -28,7 +28,7 @@ app.use(compression()); // Compress responses
 // CORS Configuration
 app.use(
   cors({
-    origin: ['https://yourdomain.com'], // Replace with your domain
+    origin: ['https://cautious-computing-machine-q9654rrwj74h4p67-3000.app.github.dev',"*"], // Replace with your domain
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
