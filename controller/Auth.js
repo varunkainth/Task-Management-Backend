@@ -123,8 +123,8 @@ export const userLogin = async (req, res) => {
     }
 
     // Create tokens
-    const accessToken = JWTGen({ Time: "1h", Role: user.role, Id: user._id });
-    const refreshToken = JWTGen({ Time: "30d", Role: user.role, Id: user._id });
+    const accessToken = await JWTGen({ Time: "1h", Role: user.role, Id: user._id });
+    const refreshToken = await JWTGen({ Time: "30d", Role: user.role, Id: user._id });
 
     // Hash refresh token
     const hashedRefreshToken = await bcrypt.hash(String(refreshToken), 11);
@@ -296,7 +296,7 @@ export const refreshToken = async (req, res) => {
     }
 
     // Generate a new access token
-    const newAccessToken = jwt.sign(
+    const newAccessToken =  jwt.sign(
       { userId: refreshToken.userId },
       process.env.JWT_SECRET_KEY,
       { expiresIn: "1h" }
@@ -353,8 +353,8 @@ export const GoogleSignup = async (req, res) => {
 
     if (user) {
       // User exists, generate tokens
-      const accessToken = JWTGen({ Id: user._id, Role: "Member", Time: "1h" });
-      const refreshToken = JWTGen({
+      const accessToken = await JWTGen({ Id: user._id, Role: "Member", Time: "1h" });
+      const refreshToken = await JWTGen({
         Id: user._id,
         Role: "Member",
         Time: "30d",
@@ -399,8 +399,8 @@ export const GoogleSignup = async (req, res) => {
     await newUser.save();
 
     // Generate tokens
-    const accessToken = JWTGen({ Id: newUser._id, Role: "Member", Time: "1h" });
-    const refreshToken = JWTGen({
+    const accessToken = await JWTGen({ Id: newUser._id, Role: "Member", Time: "1h" });
+    const refreshToken = await JWTGen({
       Id: newUser._id,
       Role: "Member",
       Time: "30d",
@@ -443,12 +443,12 @@ export const GithubSignUp = async (req, res) => {
     const { uid, email, name, picture } = decodedToken;
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      const accessToken = JWTGen({
+      const accessToken = await JWTGen({
         Id: existingUser._id,
         Role: "Member",
         Time: "1h",
       });
-      const refreshToken = JWTGen({
+      const refreshToken = await JWTGen({
         Id: existingUser._id,
         Role: "Member",
         Time: "30d",

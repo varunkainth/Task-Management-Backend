@@ -6,28 +6,27 @@ const userSchema = new Schema(
     name: {
       type: String,
       required: true,
-      index: true, // Add index if searching by name is common
+      index: true, 
     },
     id: {
       type: String,
-      required: true,
-      unique: true, // Ensure ID is unique
+      unique: true, 
     },
     email: {
       type: String,
       required: true,
-      unique: true, // Index for faster lookups
-      match: [/.+@.+\..+/, "Please enter a valid email address"], // Email format validation
+      unique: true, 
+      match: [/.+@.+\..+/, "Please enter a valid email address"], 
     },
     password: {
       type: String,
-      required: true,
+      
     },
     role: {
       type: String,
       enum: ["Admin", "Member"],
       default: "Member",
-      index: true, // Add index if filtering by role is common
+      index: true, 
     },
     projects: [
       {
@@ -44,16 +43,16 @@ const userSchema = new Schema(
     gender: {
       type: String,
       enum: ["Male", "Female", "Other"],
-      required: true,
+      
     },
     dateOfBirth: {
       type: Date,
-      required: true,
+      
     },
     phoneNumber: {
       type: String,
-      required: true,
-      match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"], // Phone number format validation
+     
+      // match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"], // Phone number format validation
     },
     profilePic: {
       type: String,
