@@ -108,23 +108,32 @@ export const userLogin = async (req, res) => {
   try {
     const { id, email, password } = req.body;
 
-    if (!id || !password) {
-      return res.status(400).json({ message: "Please fill in all fields" });
+    if ((!email && !id) || !password) {
+      return res.status(400).json({ message: "Please provide either email or ID and password." });
     }
+    // console.log(email,id,password)
 
     const user = await User.findOne({ $or: [{ email }, { id }] });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
+    // console.log("user",user)
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return res.status(400).json({ message: "Invalid password" });
     }
 
     // Create tokens
-    const accessToken = await JWTGen({ Time: "1h", Role: user.role, Id: user._id });
-    const refreshToken = await JWTGen({ Time: "30d", Role: user.role, Id: user._id });
+    const accessToken = await JWTGen({
+      Time: "1h",
+      Role: user.role,
+      Id: user._id,
+    });
+    const refreshToken = await JWTGen({
+      Time: "30d",
+      Role: user.role,
+      Id: user._id,
+    });
 
     // Hash refresh token
     const hashedRefreshToken = await bcrypt.hash(String(refreshToken), 11);
@@ -153,7 +162,7 @@ export const userLogin = async (req, res) => {
       token: accessToken,
     });
   } catch (err) {
-    console.error("User Login Error:", err.message);
+    console.error("User Login Error:", err);
     res.status(500).json({ message: "Failed to login user" });
   }
 };
@@ -296,7 +305,7 @@ export const refreshToken = async (req, res) => {
     }
 
     // Generate a new access token
-    const newAccessToken =  jwt.sign(
+    const newAccessToken = jwt.sign(
       { userId: refreshToken.userId },
       process.env.JWT_SECRET_KEY,
       { expiresIn: "1h" }
@@ -353,7 +362,11 @@ export const GoogleSignup = async (req, res) => {
 
     if (user) {
       // User exists, generate tokens
-      const accessToken = await JWTGen({ Id: user._id, Role: "Member", Time: "1h" });
+      const accessToken = await JWTGen({
+        Id: user._id,
+        Role: "Member",
+        Time: "1h",
+      });
       const refreshToken = await JWTGen({
         Id: user._id,
         Role: "Member",
@@ -399,7 +412,11 @@ export const GoogleSignup = async (req, res) => {
     await newUser.save();
 
     // Generate tokens
-    const accessToken = await JWTGen({ Id: newUser._id, Role: "Member", Time: "1h" });
+    const accessToken = await JWTGen({
+      Id: newUser._id,
+      Role: "Member",
+      Time: "1h",
+    });
     const refreshToken = await JWTGen({
       Id: newUser._id,
       Role: "Member",
