@@ -12,6 +12,7 @@ import {
   userRegister,
   VerifyEmail,
   verifyPasswordResetToken,
+  verifyTOTP,
 } from "../controller/Auth.js";
 import {
   cacheValue,
@@ -113,5 +114,6 @@ router.post("/revoke-refresh-token", TokenVerify, async (req, res) => {
 router.route("/google").post(GoogleSignup);
 router.route("/github").post(GithubSignUp);
 router.route("/verify/email").post(VerifyEmail);
+router.route("/verify/totp").post(TokenVerify, verifyTOTP);
 
 export default router;

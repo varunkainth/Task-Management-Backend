@@ -1,5 +1,8 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
+import CryptoService from "../utils/Encryption";
+
+const crypto = new CryptoService(process.env.CRYPTO_ENCRYPTION_KEY);
 
 const userSchema = new Schema(
   {
@@ -48,7 +51,6 @@ const userSchema = new Schema(
     },
     phoneNumber: {
       type: String,
-
       // match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"], // Phone number format validation
     },
     profilePic: {
@@ -66,6 +68,9 @@ const userSchema = new Schema(
       type: String,
       enum: ["github", "google", "local"],
     },
+    totp_secret: {
+      type: String,
+    },
   },
   {
     timestamps: true,
@@ -78,6 +83,18 @@ userSchema.pre("save", async function (next) {
   if (user.isModified("password")) {
     try {
       user.password = await bcrypt.hash(user.password, 11);
+    } catch (err) {
+      return next(err);
+    }
+  }
+  next();
+});
+
+userSchema.pre("save", async function (next) {
+  const user = this;
+  if (user.isModified("totp_secret")) {
+    try {
+      user.totp_secret = crypto.encrypt(user.totp_secret);
     } catch (err) {
       return next(err);
     }

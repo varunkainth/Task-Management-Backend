@@ -6,6 +6,7 @@ import PasswordResetToken from "../models/PasswordForgot.js";
 import bcrypt from "bcryptjs";
 import admin from "firebase-admin";
 import { HttpStatusCodes } from "../utils/response.js";
+import TOTP_GEN from "../utils/TotpGen.js";
 
 export const userRegister = async (req, res) => {
   try {
@@ -47,6 +48,11 @@ export const userRegister = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // TOTP
+    const secret = new TOTP_GEN();
+    const totp = await secret.generateTOTP();
+    console.log("totp", totp);
+
     // Create and save user
     const user = new User({
       name,
@@ -58,6 +64,7 @@ export const userRegister = async (req, res) => {
       profilePic,
       id,
       provider: "local",
+      totp_secret: totp,
     });
     await user.save();
 
@@ -93,7 +100,7 @@ export const userRegister = async (req, res) => {
     res.header("Authorization", `Bearer ${accessToken}`);
     res.status(HttpStatusCodes.OK.code).json({
       message: "User created successfully",
-      user: { ...user._doc, password: undefined }, // Exclude password from response
+      user: { ...user._doc, password: undefined, totp_secret: undefined }, // Exclude password from response
       token: accessToken,
     });
   } catch (err) {
@@ -109,7 +116,9 @@ export const userLogin = async (req, res) => {
     const { id, email, password } = req.body;
 
     if ((!email && !id) || !password) {
-      return res.status(400).json({ message: "Please provide either email or ID and password." });
+      return res
+        .status(400)
+        .json({ message: "Please provide either email or ID and password." });
     }
     // console.log(email,id,password)
 
@@ -158,7 +167,7 @@ export const userLogin = async (req, res) => {
     res.header("Authorization", `Bearer ${accessToken}`);
     res.status(200).json({
       message: "User logged in successfully",
-      user: { ...user._doc, password: undefined }, // Exclude password from response
+      user: { ...user._doc, password: undefined, totp_secret: undefined },
       token: accessToken,
     });
   } catch (err) {
@@ -358,7 +367,7 @@ export const GoogleSignup = async (req, res) => {
     const { uid, email, name, picture } = decodedToken;
 
     // Check if user already exists by UID
-    let user = await User.findOne({ uid });
+    let user = await User.findOne({ $or: [{ email }, { uid }] });
 
     if (user) {
       // User exists, generate tokens
@@ -394,10 +403,16 @@ export const GoogleSignup = async (req, res) => {
       res.header("Authorization", `Bearer ${accessToken}`);
       return res.status(200).json({
         message: "User already exists",
-        user: { ...user._doc, password: undefined },
+        user: { ...user._doc, password: undefined, totp_secret: undefined },
         token: accessToken,
       });
     }
+
+    //TOTP
+
+    const secret = new TOTP_GEN();
+    const totp = await secret.generateTOTP();
+    console.log("totp", totp);
 
     // Create a new user
     const newUser = new User({
@@ -407,6 +422,7 @@ export const GoogleSignup = async (req, res) => {
       profilePic: picture,
       provider: "google",
       isVerified: true,
+      totp_secret: totp,
     });
 
     await newUser.save();
@@ -444,7 +460,7 @@ export const GoogleSignup = async (req, res) => {
     res.header("Authorization", `Bearer ${accessToken}`);
     return res.status(201).json({
       message: "User created successfully",
-      user: { ...newUser._doc, password: undefined }, // Exclude password from response
+      user: { ...newUser._doc, password: undefined, totp_secret: undefined },
       token: accessToken,
     });
   } catch (err) {
@@ -458,7 +474,7 @@ export const GithubSignUp = async (req, res) => {
     const { idToken } = req.body;
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, email, name, picture } = decodedToken;
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ $or: [{ email }, { uid }] });
     if (existingUser) {
       const accessToken = await JWTGen({
         Id: existingUser._id,
@@ -490,10 +506,19 @@ export const GithubSignUp = async (req, res) => {
       res.header("Authorization", `Bearer ${accessToken}`);
       res.status(200).json({
         message: "User already exists",
-        user: { ...existingUser._doc, password: undefined },
+        user: {
+          ...existingUser._doc,
+          password: undefined,
+          totp_secret: undefined,
+        },
         token: accessToken,
       });
     } else {
+      //TOTP
+      const secret = new TOTP_GEN();
+      const totp = await secret.generateTOTP();
+      console.log("totp", totp);
+
       const newUser = new User({
         email,
         name,
@@ -502,6 +527,7 @@ export const GithubSignUp = async (req, res) => {
         provider: "github",
         uid,
         isVerified: true,
+        totp_secret: totp,
       });
       await newUser.save();
       const accessToken = JWTGen({
@@ -529,7 +555,7 @@ export const GithubSignUp = async (req, res) => {
 
       return res.status(201).json({
         message: "User Created Successfully",
-        user: { ...newUser._doc, password: undefined },
+        user: { ...newUser._doc, password: undefined, totp_secret: undefined },
         token: accessToken,
       });
     }
@@ -554,6 +580,30 @@ export const VerifyEmail = async (req, res) => {
     });
   } catch (err) {
     console.error("Verify Email Error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const verifyTOTP = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const userSecret = req.user.totp_secret;
+    const secret = new TOTP_GEN();
+    const verified = secret.verifyTOTP(token, userSecret);
+
+    if (verified) {
+      return res.status(200).json({
+        message: "TOTP Verified Successfully",
+        success: true,
+      });
+    } else {
+      return res.status(401).json({
+        message: "Invalid TOTP",
+        success: false,
+      });
+    }
+  } catch (err) {
+    console.error("Verify TOTP Error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
