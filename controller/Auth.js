@@ -7,6 +7,10 @@ import bcrypt from "bcryptjs";
 import admin from "firebase-admin";
 import { HttpStatusCodes } from "../utils/response.js";
 import TOTP_GEN from "../utils/TotpGen.js";
+import CryptoService from "../utils/Encryption.js";
+import { sendEmail } from "../utils/SendEmail.js";
+import { getResetPasswordEmailHtml } from "../utils/Emails.js";
+import {v4 as uuidv4} from "uuid"
 
 export const userRegister = async (req, res) => {
   try {
@@ -126,8 +130,11 @@ export const userLogin = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    if (!user.password) {
+      return res.status(400).json({ message: "Password is not set" });
+    }
     // console.log("user",user)
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return res.status(400).json({ message: "Invalid password" });
     }
@@ -188,26 +195,32 @@ export const userLogout = async (req, res) => {
 
 export const createPasswordResetToken = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { email } = req.body;
 
-    if (!userId) {
+    if (!email) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const token = Math.random().toString(36).substr(2); // Generate a random token
+    const token = uuidv4()
+    console.log(token)
 
     const passwordResetToken = new PasswordResetToken({
-      userId,
+      userId: user._id,
       token,
       expiresAt: new Date(Date.now() + 3600000), // Token valid for 1 hour
     });
 
     const savedToken = await passwordResetToken.save();
+    await sendEmail({
+      to: user.email,
+      subject: "Reset Your Password",
+      html: getResetPasswordEmailHtml(user.email,token)
+    })
 
     res.status(201).json({
       message: "Password reset token created successfully",
@@ -242,7 +255,7 @@ export const verifyPasswordResetToken = async (req, res) => {
     }
 
     // Token is valid, proceed with password reset logic
-    res.status(200).json({ message: "Token is valid" });
+    res.status(200).json({ message: "Token is valid", success:true});
   } catch (error) {
     console.error("Verify Password Reset Token Error:", error);
     res.status(500).json({ message: "Internal Server Error" });

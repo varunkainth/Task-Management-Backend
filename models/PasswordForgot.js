@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs"
+import dotenv from "dotenv"
 
 const passwordResetTokenSchema = new mongoose.Schema(
   {

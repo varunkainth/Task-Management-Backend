@@ -33,6 +33,9 @@ router.post("/logout", TokenVerify, async (req, res) => {
   try {
     // Perform logout operation
     await userLogout(req, res);
+    if (res.headersSent) {
+      return;
+    }
 
     // Invalidate user session cache if needed
     const userId = req.user._id; // Ensure userId is available in the request
