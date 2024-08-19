@@ -1,7 +1,8 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
-import CryptoService from "../utils/Encryption";
-
+import CryptoService from "../utils/Encryption.js";
+import dotenv from "dotenv"
+dotenv.config()
 const crypto = new CryptoService(process.env.CRYPTO_ENCRYPTION_KEY);
 
 const userSchema = new Schema(
