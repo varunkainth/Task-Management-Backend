@@ -1,33 +1,34 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
+import CryptoService from "../utils/Encryption";
+
+const crypto = new CryptoService(process.env.CRYPTO_ENCRYPTION_KEY);
 
 const userSchema = new Schema(
   {
     name: {
       type: String,
       required: true,
-      index: true, // Add index if searching by name is common
+      index: true,
     },
     id: {
       type: String,
-      required: true,
-      unique: true, // Ensure ID is unique
+      unique: true,
     },
     email: {
       type: String,
       required: true,
-      unique: true, // Index for faster lookups
-      match: [/.+@.+\..+/, "Please enter a valid email address"], // Email format validation
+      unique: true,
+      match: [/.+@.+\..+/, "Please enter a valid email address"],
     },
     password: {
       type: String,
-      required: true,
     },
     role: {
       type: String,
       enum: ["Admin", "Member"],
       default: "Member",
-      index: true, // Add index if filtering by role is common
+      index: true,
     },
     projects: [
       {
@@ -44,16 +45,13 @@ const userSchema = new Schema(
     gender: {
       type: String,
       enum: ["Male", "Female", "Other"],
-      required: true,
     },
     dateOfBirth: {
       type: Date,
-      required: true,
     },
     phoneNumber: {
       type: String,
-      required: true,
-      match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"], // Phone number format validation
+      // match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"], // Phone number format validation
     },
     profilePic: {
       type: String,
@@ -70,6 +68,9 @@ const userSchema = new Schema(
       type: String,
       enum: ["github", "google", "local"],
     },
+    totp_secret: {
+      type: String,
+    },
   },
   {
     timestamps: true,
@@ -82,6 +83,18 @@ userSchema.pre("save", async function (next) {
   if (user.isModified("password")) {
     try {
       user.password = await bcrypt.hash(user.password, 11);
+    } catch (err) {
+      return next(err);
+    }
+  }
+  next();
+});
+
+userSchema.pre("save", async function (next) {
+  const user = this;
+  if (user.isModified("totp_secret")) {
+    try {
+      user.totp_secret = crypto.encrypt(user.totp_secret);
     } catch (err) {
       return next(err);
     }
