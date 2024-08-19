@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
-import CryptoService from "../utils/Encryption";
+import CryptoService from "../utils/Encryption.js";
 
 const crypto = new CryptoService(process.env.CRYPTO_ENCRYPTION_KEY);
 
