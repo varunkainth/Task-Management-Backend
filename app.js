@@ -4,13 +4,13 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
-import hpp from "hpp"; 
+import hpp from "hpp";
 
 const app = express();
 
 // Rate Limiting: Limit the number of requests from a single IP
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: "Too many requests from this IP, please try again later.",
 });
@@ -19,29 +19,32 @@ const limiter = rateLimit({
 // app.use(limiter);
 
 // Security Middleware
-app.use(helmet()); 
-app.use(hpp()); 
+app.use(helmet());
+app.use(hpp());
 
 // Compression Middleware
 app.use(compression());
 
-
 app.use(
   cors({
-    origin: ["*","https://cautious-computing-machine-q9654rrwj74h4p67-3000.app.github.dev"], 
+    origin: [
+      "*",
+      "https://cautious-computing-machine-q9654rrwj74h4p67-3000.app.github.dev",
+      "*",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    // allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 // Express Middle Ware
 app.use(
   express.json({
-    limit: "10mb", 
+    limit: "10mb",
   })
 );
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public")); 
+app.use(express.static("public"));
 app.use(cookieParser());
 
 // HomePage
