@@ -10,20 +10,21 @@ import TOTP_GEN from "../utils/TotpGen.js";
 import CryptoService from "../utils/Encryption.js";
 import { sendEmail } from "../utils/SendEmail.js";
 import { getResetPasswordEmailHtml } from "../utils/Emails.js";
-import {v4 as uuidv4} from "uuid"
+import { v4 as uuidv4 } from "uuid";
 
 export const userRegister = async (req, res) => {
   try {
     const { name, password, email, phoneNumber, gender, dob } = req.body;
-    // print all values
-    console.log(name, password, email, phoneNumber, gender, dob);
+
+    // Log input values for debugging
+    console.log({ name, password, email, phoneNumber, gender, dob });
 
     // Validate input
     if (
       [name, password, email, phoneNumber, gender, dob].some((field) => !field)
     ) {
       return res
-        .status(HttpStatusCodes.BAD_REQUEST.code)
+        .status(HttpStatusCodes.BAD_REQUEST)
         .json({ message: "Please fill in all fields" });
     }
 
@@ -31,7 +32,7 @@ export const userRegister = async (req, res) => {
     const existUser = await User.findOne({ $or: [{ email }, { phoneNumber }] });
     if (existUser) {
       return res
-        .status(HttpStatusCodes.CONFLICT.code)
+        .status(HttpStatusCodes.CONFLICT)
         .json({ message: "User already exists" });
     }
 
@@ -42,6 +43,7 @@ export const userRegister = async (req, res) => {
       ""
     )}`;
 
+    // Format gender
     const formattedGender =
       gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
 
@@ -52,10 +54,10 @@ export const userRegister = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // TOTP
+    // Generate TOTP
     const secret = new TOTP_GEN();
     const totp = await secret.generateTOTP();
-    console.log("totp", totp);
+    console.log("TOTP:", totp);
 
     // Create and save user
     const user = new User({
@@ -73,20 +75,21 @@ export const userRegister = async (req, res) => {
     await user.save();
 
     // Create tokens
-    const accessToken = await JWTGen({
-      Id: user._id,
-      Role: "Member",
-      Time: "1h",
-    });
-    const refreshToken = await JWTGen({
-      Id: user._id,
-      Role: "Member",
-      Time: "30d",
-    });
+    const accessToken = jwt.sign(
+      { Id: user._id, Role: "Member" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+    const refreshToken = jwt.sign(
+      { Id: user._id, Role: "Member" },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
 
     // Hash refresh token
     const hashedRefreshToken = await bcrypt.hash(String(refreshToken), 11);
-    console.log(hashedRefreshToken);
+    console.log("Hashed Refresh Token:", hashedRefreshToken);
+
     // Save refresh token in the database
     await RefreshTokenModel.create({
       userId: user._id,
@@ -99,19 +102,21 @@ export const userRegister = async (req, res) => {
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000,
       sameSite: "strict",
-      secure: true,
+      secure: process.env.NODE_ENV === "production", // Secure flag based on environment
     });
     res.header("Authorization", `Bearer ${accessToken}`);
-    res.status(HttpStatusCodes.OK.code).json({
+    res.status(HttpStatusCodes.OK).json({
       message: "User created successfully",
-      user: { ...user._doc, password: undefined, totp_secret: undefined }, // Exclude password from response
+      user: { ...user._doc, password: undefined, totp_secret: undefined }, // Exclude sensitive fields
       token: accessToken,
     });
   } catch (err) {
     console.error("User Register Error:", err.message);
-    res
-      .status(HttpStatusCodes.INTERNAL_SERVER_ERROR.code)
-      .json({ message: "Failed to register user" });
+    if (!res.headersSent) {
+      res
+        .status(HttpStatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Failed to register user" });
+    }
   }
 };
 
@@ -206,8 +211,8 @@ export const createPasswordResetToken = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const token = uuidv4()
-    console.log(token)
+    const token = uuidv4();
+    console.log(token);
 
     const passwordResetToken = new PasswordResetToken({
       userId: user._id,
@@ -219,8 +224,8 @@ export const createPasswordResetToken = async (req, res) => {
     await sendEmail({
       to: user.email,
       subject: "Reset Your Password",
-      html: getResetPasswordEmailHtml(user.email,token)
-    })
+      html: getResetPasswordEmailHtml(user.email, token),
+    });
 
     res.status(201).json({
       message: "Password reset token created successfully",
@@ -232,33 +237,35 @@ export const createPasswordResetToken = async (req, res) => {
   }
 };
 
-export const verifyPasswordResetToken = async (req, res) => {
+export const verifyPasswordResetToken = async (token) => {
   try {
-    const { token } = req.body;
+    // const { token } = req.body;
+    // console.log("Type of token:", typeof token);
+    // console.log("Value of token:", token);
 
     if (!token) {
-      return res.status(400).json({ message: "Token is required" });
+      return { message: "Token is required" };
     }
 
     const passwordResetToken = await PasswordResetToken.findOne({ token });
 
     if (!passwordResetToken) {
-      return res.status(404).json({ message: "Invalid or expired token" });
+      return { message: "Invalid or expired token", success: false};
     }
 
     if (passwordResetToken.used) {
-      return res.status(400).json({ message: "Token already used" });
+      return { message: "Token already used", success: false };
     }
 
     if (new Date() > passwordResetToken.expiresAt) {
-      return res.status(400).json({ message: "Token expired" });
+      return { message: "Token expired", success: false };
     }
 
-    // Token is valid, proceed with password reset logic
-    res.status(200).json({ message: "Token is valid", success:true});
+    // Token is valid
+    return { message: "Token is valid", success: true };
   } catch (error) {
-    console.error("Verify Password Reset Token Error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Verify Password Reset Token Error:", error.message);
+    return { message: "Internal Server Error", success: false };
   }
 };
 
@@ -301,10 +308,12 @@ export const usePasswordResetToken = async (req, res) => {
     passwordResetToken.used = true;
     await passwordResetToken.save();
 
-    res.status(200).json({ message: "Password reset successfully" });
+    return res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
     console.error("Use Password Reset Token Error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res
+      .status(!res.headersSent)
+      .json({ message: "Internal Server Error" });
   }
 };
 
