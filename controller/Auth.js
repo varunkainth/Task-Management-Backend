@@ -198,17 +198,17 @@ export const userLogout = async (req, res) => {
   }
 };
 
-export const createPasswordResetToken = async (req, res) => {
+export const createPasswordResetToken = async (email) => {
   try {
-    const { email } = req.body;
+    
 
     if (!email) {
-      return res.status(400).json({ message: "User ID is required" });
+      return { message: "User ID is required" };
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return { message: "User not found" };
     }
 
     const token = uuidv4();
@@ -224,16 +224,16 @@ export const createPasswordResetToken = async (req, res) => {
     await sendEmail({
       to: user.email,
       subject: "Reset Your Password",
-      html: getResetPasswordEmailHtml(user.email, token),
+      html: getResetPasswordEmailHtml(user.email, savedToken.token),
     });
 
-    res.status(201).json({
+    return{
       message: "Password reset token created successfully",
       token: savedToken,
-    });
+    };
   } catch (error) {
     console.error("Create Password Reset Token Error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return { message: "Internal Server Error" };
   }
 };
 
@@ -269,34 +269,33 @@ export const verifyPasswordResetToken = async (token) => {
   }
 };
 
-export const usePasswordResetToken = async (req, res) => {
+export const usePasswordResetToken = async (token, newPassword) => {
   try {
-    const { token, newPassword } = req.body;
+    // console.log(token, newPassword)
+    // const { token, newPassword } = req.body;
 
     if (!token || !newPassword) {
-      return res
-        .status(400)
-        .json({ message: "Token and new password are required" });
+      return { message: "Token and new password are required" };
     }
 
     const passwordResetToken = await PasswordResetToken.findOne({ token });
 
     if (!passwordResetToken) {
-      return res.status(404).json({ message: "Invalid or expired token" });
+      return { message: "Invalid or expired token" };
     }
 
     if (passwordResetToken.used) {
-      return res.status(400).json({ message: "Token already used" });
+      return { message: "Token already used" };
     }
 
     if (new Date() > passwordResetToken.expiresAt) {
-      return res.status(400).json({ message: "Token expired" });
+      return { message: "Token expired" };
     }
 
     const user = await User.findById(passwordResetToken.userId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return { message: "User not found" };
     }
 
     // Hash new password and update the user's password
@@ -308,12 +307,10 @@ export const usePasswordResetToken = async (req, res) => {
     passwordResetToken.used = true;
     await passwordResetToken.save();
 
-    return res.status(200).json({ message: "Password reset successfully" });
+    return { message: "Password reset successfully" };
   } catch (error) {
     console.error("Use Password Reset Token Error:", error);
-    return res
-      .status(!res.headersSent)
-      .json({ message: "Internal Server Error" });
+    return { message: "Internal Server Error" };
   }
 };
 

@@ -98,7 +98,8 @@ export const getInvitationEmailHtml = (
 };
 
 export const getResetPasswordEmailHtml = (email, token) => {
-  const resetLink = `${process.env.FRONTEND_URL}/reset_password?token=${token}`;
+  const encodedToken = encodeURIComponent(token)
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password/${encodedToken}?email=${email}`;
   return `
     <!DOCTYPE html>
     <html lang="en">

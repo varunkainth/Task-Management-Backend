@@ -48,7 +48,8 @@ router.post(
 router.post(
   "/password-reset-token",
   asyncHandler(async (req, res) => {
-    const response = await createPasswordResetToken(req.body);
+    const { email } = req.body;
+    const response = await createPasswordResetToken(email);
     res.status(200).json(response);
   })
 );
@@ -68,8 +69,9 @@ router.post(
 router.post(
   "/use-password-reset-token",
   asyncHandler(async (req, res) => {
-    
-    const response = await usePasswordResetToken(req.body);
+    console.log(req.body)
+    const {token, newPassword} = req.body.userData
+    const response = await usePasswordResetToken(token, newPassword);
     res.status(200).json(response);
   })
 );
