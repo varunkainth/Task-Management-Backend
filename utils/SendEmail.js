@@ -4,7 +4,7 @@ import transporter from "../config/NodeMailer.js";
 export const sendEmail = async ({ to, subject, text, html }) => {
   try {
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: `"Task Management Team" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html, 

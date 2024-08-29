@@ -14,7 +14,7 @@ import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.j
 const router = Router();
 
 // Update user details (Requires authentication)
-router.put("/users/update", TokenVerify, async (req, res) => {
+router.put("/update", TokenVerify, async (req, res) => {
   try {
     const response = await updateDetails(req, res);
     const userId = req.user._id;
@@ -27,7 +27,7 @@ router.put("/users/update", TokenVerify, async (req, res) => {
 });
 
 // Update user password (Requires authentication)
-router.put("/users/update-password", TokenVerify, async (req, res) => {
+router.put("/update-password", TokenVerify, async (req, res) => {
   try {
     const response = await updatePassword(req, res);
     const userId = req.user._id;
@@ -41,7 +41,7 @@ router.put("/users/update-password", TokenVerify, async (req, res) => {
 
 // Update user profile picture (Requires authentication)
 router.post(
-  "/users/update-profile-pic",
+  "/update-profile-pic",
   TokenVerify,
   upload.single("profilePic"),
   async (req, res) => {
@@ -58,7 +58,7 @@ router.post(
 );
 
 // Delete a user (Requires authentication)
-router.delete("/users/delete", TokenVerify, async (req, res) => {
+router.delete("/delete", TokenVerify, async (req, res) => {
   try {
     const response = await deleteUser(req, res);
     const userId = req.user._id;
@@ -71,7 +71,7 @@ router.delete("/users/delete", TokenVerify, async (req, res) => {
 });
 
 // Get all users (Requires authentication, optionally restricted to admin role)
-router.get("/users", TokenVerify, async (req, res) => {
+router.get("/get-all", TokenVerify, async (req, res) => {
   try {
     const cacheKey = 'allUsers';
     const cachedUsers = await getCachedValue(cacheKey);
@@ -90,7 +90,7 @@ router.get("/users", TokenVerify, async (req, res) => {
 });
 
 // Get details of a specific user (Requires authentication)
-router.get("/users/:id", TokenVerify, async (req, res) => {
+router.get("/get/:id", TokenVerify, async (req, res) => {
   try {
     const userId = req.params.id;
     const cacheKey = `user:${userId}:details`;

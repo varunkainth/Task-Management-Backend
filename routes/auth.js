@@ -22,98 +22,88 @@ import {
 
 const router = Router();
 
+// Wrapper function to handle async errors
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
+
 // User registration route
-router.post("/register", userRegister);
+router.post("/register", asyncHandler(userRegister));
 
 // User login route
-router.post("/login", userLogin);
+router.post("/login", asyncHandler(userLogin));
 
 // User logout route
-router.post("/logout", TokenVerify, async (req, res) => {
-  try {
-    // Perform logout operation
+router.post(
+  "/logout",
+  TokenVerify,
+  asyncHandler(async (req, res) => {
     await userLogout(req, res);
-
-    // Invalidate user session cache if needed
-    const userId = req.user._id; // Ensure userId is available in the request
+    const userId = req.user._id;
     await deleteCachedValue(`user:${userId}:session`);
-
     res.status(200).json({ message: "Logged out successfully" });
-  } catch (error) {
-    console.error("Error during logout:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+  })
+);
 
 // Create a password reset token
-router.post("/password-reset-token", async (req, res) => {
-  try {
-    const response = await createPasswordResetToken(req, res);
-    // Cache or store the response as needed
+router.post(
+  "/password-reset-token",
+  asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const response = await createPasswordResetToken(email);
     res.status(200).json(response);
-  } catch (error) {
-    console.error("Error creating password reset token:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+  })
+);
 
 // Verify a password reset token
-router.post("/verify-password-reset-token", async (req, res) => {
-  try {
-    const response = await verifyPasswordResetToken(req, res);
-    res.status(200).json(response);
-  } catch (error) {
-    console.error("Error verifying password reset token:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+router.post(
+  "/verify-password-reset-token",
+  asyncHandler(async (req, res) => {
+    // console.log('Request body:', req.body); 
+    const { token } = req.body;
+    const response = await verifyPasswordResetToken(token);
+   return res.status(200).json(response);
+  })
+);
 
 // Use a password reset token to set a new password
-router.post("/use-password-reset-token", async (req, res) => {
-  try {
-    const response = await usePasswordResetToken(req, res);
+router.post(
+  "/use-password-reset-token",
+  asyncHandler(async (req, res) => {
+    console.log(req.body)
+    const {token, newPassword} = req.body.userData
+    const response = await usePasswordResetToken(token, newPassword);
     res.status(200).json(response);
-  } catch (error) {
-    console.error("Error using password reset token:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+  })
+);
 
 // Refresh an access token using a refresh token
-router.post("/refresh-token", async (req, res) => {
-  try {
-    const response = await refreshToken(req, res);
-
-    // Cache the new access token
+router.post(
+  "/refresh-token",
+  asyncHandler(async (req, res) => {
+    const response = await refreshToken(req.body);
     const { userId, accessToken } = response;
-    await cacheValue(`user:${userId}:accessToken`, accessToken, 3600); // Cache for 1 hour
-
+    await cacheValue(`user:${userId}:accessToken`, accessToken, 3600);
     res.status(200).json(response);
-  } catch (error) {
-    console.error("Error refreshing token:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+  })
+);
 
 // Revoke a refresh token
-router.post("/revoke-refresh-token", TokenVerify, async (req, res) => {
-  try {
-    const response = await revokeRefreshToken(req, res);
-
-    // Invalidate cache for the revoked refresh token
-    const userId = req.user._id; // Ensure userId is available in the request
-    await deleteCachedValue(`user:${userId}:refreshToken`);
-
+router.post(
+  "/revoke-refresh-token",
+  TokenVerify,
+  asyncHandler(async (req, res) => {
+    const response = await revokeRefreshToken(
+      req.user._id,
+      req.body.refreshToken
+    );
+    await deleteCachedValue(`user:${req.user._id}:refreshToken`);
     res.status(200).json(response);
-  } catch (error) {
-    console.error("Error revoking refresh token:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+  })
+);
 
-router.route("/google").post(GoogleSignup);
-router.route("/github").post(GithubSignUp);
-router.route("/verify/email").post(VerifyEmail);
-router.route("/verify/totp").post(TokenVerify, verifyTOTP);
+router.post("/google", asyncHandler(GoogleSignup));
+router.post("/github", asyncHandler(GithubSignUp));
+router.post("/verify/email", asyncHandler(VerifyEmail));
+router.post("/verify/totp", TokenVerify, asyncHandler(verifyTOTP));
 
 export default router;
