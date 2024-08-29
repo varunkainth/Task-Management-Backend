@@ -72,6 +72,16 @@ const userSchema = new Schema(
     totp_secret: {
       type: String,
     },
+    social:[
+      {
+        platform:{
+          type:String,
+        },
+        url:{
+          type:String,
+        }
+      }
+    ]
   },
   {
     timestamps: true,
