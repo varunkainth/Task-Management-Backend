@@ -4,7 +4,7 @@ import { uploadImage } from "../utils/UploadToCloudinary.js";
 
 export const updateDetails = async (req, res) => {
   try {
-    const { name, email, phoneNumber, dob, gender } = req.body;
+    const { name, email, phoneNumber, dateOfBirth, gender,social } = req.body;
     const updates = {};
 
     // Validate input
@@ -16,8 +16,9 @@ export const updateDetails = async (req, res) => {
     if (name) updates.name = name;
     if (email) updates.email = email;
     if (phoneNumber) updates.phoneNumber = phoneNumber;
-    if (dob) updates.dateOfBirth = dob;
+    if (dateOfBirth) updates.dateOfBirth = dateOfBirth;
     if (gender) updates.gender = gender;
+    if (social) updates.social = social;
 
     // Update the user details
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select('-password');

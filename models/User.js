@@ -74,7 +74,7 @@ const userSchema = new Schema(
     },
     social:[
       {
-        platform:{
+        type:{
           type:String,
         },
         url:{
