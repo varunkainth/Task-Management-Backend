@@ -1,7 +1,8 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
-import CryptoService from "../utils/Encryption";
-
+import CryptoService from "../utils/Encryption.js";
+import dotenv from "dotenv";
+dotenv.config();
 const crypto = new CryptoService(process.env.CRYPTO_ENCRYPTION_KEY);
 
 const userSchema = new Schema(
@@ -69,6 +70,9 @@ const userSchema = new Schema(
       enum: ["github", "google", "local"],
     },
     totp_secret: {
+      type: String,
+    },
+    totp_qr_url: {
       type: String,
     },
   },

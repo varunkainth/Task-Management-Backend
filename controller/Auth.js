@@ -64,7 +64,8 @@ export const userRegister = async (req, res) => {
       profilePic,
       id,
       provider: "local",
-      totp_secret: totp,
+      totp_secret: totp.secret,
+      totp_qr_url: totp.qrCodeUrl,
     });
     await user.save();
 
@@ -188,23 +189,25 @@ export const userLogout = async (req, res) => {
 
 export const createPasswordResetToken = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { email } = req.body;
 
-    if (!userId) {
+    if (!email) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findOne({
+      email,
+    });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const token = Math.random().toString(36).substr(2); // Generate a random token
+    const token = Math.random().toString(36).substr(2);
 
     const passwordResetToken = new PasswordResetToken({
-      userId,
+      userId : user._id,
       token,
-      expiresAt: new Date(Date.now() + 3600000), // Token valid for 1 hour
+      expiresAt: new Date(Date.now() + 3600000), 
     });
 
     const savedToken = await passwordResetToken.save();
@@ -422,7 +425,8 @@ export const GoogleSignup = async (req, res) => {
       profilePic: picture,
       provider: "google",
       isVerified: true,
-      totp_secret: totp,
+      totp_secret: totp.secret,
+      totp_qr_url: totp.qrCodeUrl,
     });
 
     await newUser.save();
@@ -527,7 +531,8 @@ export const GithubSignUp = async (req, res) => {
         provider: "github",
         uid,
         isVerified: true,
-        totp_secret: totp,
+        totp_secret: totp.secret,
+        totp_qr_url: totp.qrCodeUrl,
       });
       await newUser.save();
       const accessToken = JWTGen({
