@@ -36,7 +36,7 @@ const startServer = async () => {
     // Start the server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
-      console.log("Redis URL:", process.env.REDIS_URL);
+      // console.log("Redis URL:", process.env.REDIS_URL);
     });
   } catch (err) {
     console.error(

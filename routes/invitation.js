@@ -13,7 +13,7 @@ import { cacheValue, getCachedValue, deleteCachedValue } from "../config/redis.j
 const router = Router();
 
 // Create an invitation
-router.post("/projects/:projectId/invitations", TokenVerify, async (req, res) => {
+router.post("/projects/:projectId", TokenVerify, async (req, res) => {
   try {
     await createInvitation(req, res);
 
@@ -29,7 +29,7 @@ router.post("/projects/:projectId/invitations", TokenVerify, async (req, res) =>
 });
 
 // Get all invitations for a specific project
-router.get("/projects/:projectId/invitations", async (req, res) => {
+router.get("/projects/invitations/:projectId", async (req, res) => {
   try {
     const { projectId } = req.params;
     const cacheKey = `project:${projectId}:invitations`;
@@ -50,10 +50,10 @@ router.get("/projects/:projectId/invitations", async (req, res) => {
 });
 
 // Get an invitation by ID
-router.get("/invitations/:invitationId", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const { invitationId } = req.params;
-    const cacheKey = `invitation:${invitationId}`;
+    const { id } = req.params;
+    const cacheKey = `invitation:${id}`;
     const cachedInvitation = await getCachedValue(cacheKey);
 
     if (cachedInvitation) {
@@ -71,13 +71,13 @@ router.get("/invitations/:invitationId", async (req, res) => {
 });
 
 // Update an invitation's status
-router.put("/invitations/:invitationId", TokenVerify, AdminCheck, async (req, res) => {
+router.put("/:id", TokenVerify, AdminCheck, async (req, res) => {
   try {
-    const { invitationId } = req.params;
+    const { id } = req.params;
     await updateInvitation(req, res);
 
     // Invalidate cache after update
-    await deleteCachedValue(`invitation:${invitationId}`);
+    await deleteCachedValue(`invitation:${id}`);
 
     // Also, invalidate the cache for the project's invitations list if needed
     const invitation = await getInvitationById(req, res);
@@ -92,7 +92,7 @@ router.put("/invitations/:invitationId", TokenVerify, AdminCheck, async (req, re
 });
 
 // Delete an invitation by ID
-router.delete("/invitations/:invitationId", TokenVerify, AdminCheck, async (req, res) => {
+router.delete("/:invitationId", TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { invitationId } = req.params;
     const invitation = await deleteInvitationById(req, res);

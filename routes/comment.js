@@ -12,7 +12,7 @@ import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.j
 const router = Router();
 
 // Create a new comment
-router.post('/comments', TokenVerify, async (req, res) => {
+router.post('/', TokenVerify, async (req, res) => {
   try {
     const newComment = await createComment(req, res);
 
@@ -29,7 +29,7 @@ router.post('/comments', TokenVerify, async (req, res) => {
 });
 
 // Get a single comment by ID
-router.get('/comments/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const cacheKey = `comment:${id}`;
@@ -50,7 +50,7 @@ router.get('/comments/:id', async (req, res) => {
 });
 
 // Get all comments for a specific task
-router.get('/tasks/:taskId/comments', async (req, res) => {
+router.get('/:taskId/comments', async (req, res) => {
   try {
     const { taskId } = req.params;
     const cacheKey = `task:${taskId}:comments`;
@@ -71,7 +71,7 @@ router.get('/tasks/:taskId/comments', async (req, res) => {
 });
 
 // Update a comment by ID
-router.put('/comments/:id', TokenVerify, async (req, res) => {
+router.put('/:id', TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const updatedComment = await updateComment(req, res);
@@ -92,7 +92,7 @@ router.put('/comments/:id', TokenVerify, async (req, res) => {
 });
 
 // Delete a comment by ID
-router.delete('/comments/:id', TokenVerify, async (req, res) => {
+router.delete('/:id', TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const deletedComment = await deleteComment(req, res);
