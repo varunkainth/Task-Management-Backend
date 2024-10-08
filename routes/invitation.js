@@ -29,7 +29,7 @@ router.post("/projects/:projectId", TokenVerify, async (req, res) => {
 });
 
 // Get all invitations for a specific project
-router.get("/projects/invitations/:projectId", async (req, res) => {
+router.get("/projects/:projectId", async (req, res) => {
   try {
     const { projectId } = req.params;
     const cacheKey = `project:${projectId}:invitations`;

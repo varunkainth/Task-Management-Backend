@@ -50,7 +50,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Get all comments for a specific task
-router.get('/:taskId/comments', async (req, res) => {
+router.get('/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     const cacheKey = `task:${taskId}:comments`;

@@ -14,7 +14,7 @@ import { cacheValue, getCachedValue, deleteCachedValue } from "../config/redis.j
 const router = Router();
 
 // Create a project
-router.post("/projects", TokenVerify, async (req, res) => {
+router.post("/", TokenVerify, async (req, res) => {
   try {
     const newProject = await ProjectCreate(req, res);
 
@@ -29,7 +29,7 @@ router.post("/projects", TokenVerify, async (req, res) => {
 });
 
 // Get all projects
-router.get("/projects", TokenVerify, async (req, res) => {
+router.get("/", TokenVerify, async (req, res) => {
   try {
     const cacheKey = 'allProjects';
     const cachedProjects = await getCachedValue(cacheKey);
@@ -49,7 +49,7 @@ router.get("/projects", TokenVerify, async (req, res) => {
 });
 
 // Get a project by ID
-router.get("/projects/:id", TokenVerify, async (req, res) => {
+router.get("/:id", TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const cacheKey = `project:${id}`;
@@ -70,7 +70,7 @@ router.get("/projects/:id", TokenVerify, async (req, res) => {
 });
 
 // Update a project
-router.put("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
+router.put("/:id", TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { id } = req.params;
     const updatedProject = await updateProject(req, res);
@@ -87,7 +87,7 @@ router.put("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
 });
 
 // Delete a project
-router.delete("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
+router.delete("/:id", TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { id } = req.params;
     await deleteProject(req, res);
@@ -104,7 +104,7 @@ router.delete("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
 });
 
 // Delete all projects for a user
-router.delete("/users/projects", TokenVerify, AdminCheck, async (req, res) => {
+router.delete("/users/", TokenVerify, AdminCheck, async (req, res) => {
   try {
     await deleteAllUserProjects(req, res);
 
