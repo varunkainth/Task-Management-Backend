@@ -40,30 +40,30 @@ router.get("/", TokenVerify, async (req, res) => {
     }
 
     // Fetch projects from the database
-    const projects = await getAllProject(); // Remove req, res parameters
+    const projects = await getAllProject(); // Fetch projects from DB
     
     // Handle case where no projects are found
     if (!projects || projects.length === 0) {
       return res.status(200).json([]); // Return empty array instead of 404
     }
 
-    // Ensure projects is serializable
+    // Serialize projects to ensure they are JSON-safe
     const serializedProjects = projects.map(project => ({
       id: project._id.toString(), // Ensure ID is converted to string
       name: project.name,
-      description: project.description,
+      description: project.description || null, // Handle potentially null description
       createdBy: project.createdBy ? {
         id: project.createdBy._id?.toString(),
-        name: project.createdBy.name
+        name: project.createdBy.name || null // Ensure createdBy.name is safe
       } : null,
-      members: project.members,
+      members: project.members || [], // Ensure members is an array
       invites: project.invites?.map(invitation => ({
         id: invitation._id?.toString(),
-        email: invitation.email,
+        email: invitation.email || null, // Ensure email is safe
       })) || [],
       tasks: project.tasks?.map(task => ({
         id: task._id?.toString(),
-        title: task.title,
+        title: task.title || null, // Ensure title is safe
       })) || [],
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
@@ -77,6 +77,7 @@ router.get("/", TokenVerify, async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching all projects:', error);
+    // Ensure we don't attempt to send a response more than once
     return res.status(500).json({ 
       message: 'Failed to fetch projects',
       error: error.message 
