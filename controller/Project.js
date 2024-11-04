@@ -42,20 +42,16 @@ export const ProjectCreate = async (req, res) => {
   }
 };
 
-export const getAllProject = async (req, res) => {
+export const getAllProject = async () => {
   try {
     const projects = await Project.find()
       .populate("createdBy", "name")
       .populate("tasks");
 
-    if (projects.length === 0) {
-      return res.status(404).json({ message: "No projects found" });
-    }
-
     return projects;
   } catch (error) {
     console.error("Get All Projects Error:", error);
-    return res.status(500).json({ message: "Failed to retrieve projects" });
+    throw error; // Let the route handler catch this
   }
 };
 

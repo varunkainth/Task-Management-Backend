@@ -36,41 +36,51 @@ router.get("/", TokenVerify, async (req, res) => {
 
     // If cached projects exist, return them
     if (cachedProjects) {
-      // Parse and send cached data
       return res.status(200).json(JSON.parse(cachedProjects));
     }
 
     // Fetch projects from the database
-    const projects = await getAllProject(req, res);
+    const projects = await getAllProject(); // Remove req, res parameters
     
+    // Handle case where no projects are found
+    if (!projects || projects.length === 0) {
+      return res.status(200).json([]); // Return empty array instead of 404
+    }
+
     // Ensure projects is serializable
     const serializedProjects = projects.map(project => ({
-      id: project.id,
+      id: project._id.toString(), // Ensure ID is converted to string
       name: project.name,
       description: project.description,
-      createdBy: project.createdBy,
+      createdBy: project.createdBy ? {
+        id: project.createdBy._id?.toString(),
+        name: project.createdBy.name
+      } : null,
       members: project.members,
       invites: project.invites?.map(invitation => ({
-        id: invitation.id,
+        id: invitation._id?.toString(),
         email: invitation.email,
-      })),
+      })) || [],
       tasks: project.tasks?.map(task => ({
-        id: task.id,
+        id: task._id?.toString(),
         title: task.title,
-        
-      })),
+      })) || [],
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
     }));
 
-    // Cache the serialized projects for 1 hour
+    // Cache the serialized projects
     await cacheValue(cacheKey, JSON.stringify(serializedProjects), 3600);
 
-    // Send the response with the fetched projects
+    // Send the response
     return res.status(200).json(serializedProjects);
+
   } catch (error) {
     console.error('Error fetching all projects:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ 
+      message: 'Failed to fetch projects',
+      error: error.message 
+    });
   }
 });
 
