@@ -34,19 +34,46 @@ router.get("/", TokenVerify, async (req, res) => {
     const cacheKey = 'allProjects';
     const cachedProjects = await getCachedValue(cacheKey);
 
+    // If cached projects exist, return them
     if (cachedProjects) {
+      // Parse and send cached data
       return res.status(200).json(JSON.parse(cachedProjects));
     }
 
+    // Fetch projects from the database
     const projects = await getAllProject(req, res);
+    
+    // Ensure projects is serializable
+    const serializedProjects = projects.map(project => ({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      createdBy: project.createdBy,
+      members: project.members,
+      invites: project.invites?.map(invitation => ({
+        id: invitation.id,
+        email: invitation.email,
+      })),
+      tasks: project.tasks?.map(task => ({
+        id: task.id,
+        title: task.title,
+        
+      })),
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+    }));
 
-    await cacheValue(cacheKey, JSON.stringify(projects), 3600); // Cache for 1 hour
-    res.status(200).json(projects);
+    // Cache the serialized projects for 1 hour
+    await cacheValue(cacheKey, JSON.stringify(serializedProjects), 3600);
+
+    // Send the response with the fetched projects
+    return res.status(200).json(serializedProjects);
   } catch (error) {
     console.error('Error fetching all projects:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
 
 // Get a project by ID
 router.get("/:id", TokenVerify, async (req, res) => {
