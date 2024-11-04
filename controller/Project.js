@@ -52,7 +52,7 @@ export const getAllProject = async (req, res) => {
       return res.status(404).json({ message: "No projects found" });
     }
 
-    return res.status(200).json(projects);
+    return projects;
   } catch (error) {
     console.error("Get All Projects Error:", error);
     return res.status(500).json({ message: "Failed to retrieve projects" });
