@@ -73,7 +73,7 @@ export const userRegister = async (req, res) => {
     const accessToken = await JWTGen({
       Id: user._id,
       Role: "Member",
-      Time: "1h",
+      Time: "30d",
     });
     const refreshToken = await JWTGen({
       Id: user._id,
@@ -135,7 +135,7 @@ export const userLogin = async (req, res) => {
 
     // Create tokens
     const accessToken = await JWTGen({
-      Time: "1h",
+      Time: "30d",
       Role: user.role,
       Id: user._id,
     });
@@ -320,7 +320,7 @@ export const refreshToken = async (req, res) => {
     const newAccessToken = jwt.sign(
       { userId: refreshToken.userId },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: "1h" }
+      { expiresIn: "30d" }
     );
 
     res.status(200).json({
@@ -377,7 +377,7 @@ export const GoogleSignup = async (req, res) => {
       const accessToken = await JWTGen({
         Id: user._id,
         Role: "Member",
-        Time: "1h",
+        Time: "30d",
       });
       const refreshToken = await JWTGen({
         Id: user._id,
@@ -435,7 +435,7 @@ export const GoogleSignup = async (req, res) => {
     const accessToken = await JWTGen({
       Id: newUser._id,
       Role: "Member",
-      Time: "1h",
+      Time: "30d",
     });
     const refreshToken = await JWTGen({
       Id: newUser._id,
@@ -483,7 +483,7 @@ export const GithubSignUp = async (req, res) => {
       const accessToken = await JWTGen({
         Id: existingUser._id,
         Role: "Member",
-        Time: "1h",
+        Time: "30d",
       });
       const refreshToken = await JWTGen({
         Id: existingUser._id,
@@ -538,7 +538,7 @@ export const GithubSignUp = async (req, res) => {
       const accessToken = JWTGen({
         Id: newUser._id,
         Role: "Member",
-        Time: "1h",
+        Time: "30d",
       });
       const refreshToken = JWTGen({
         Id: newUser._id,
