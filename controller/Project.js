@@ -56,9 +56,9 @@ export const getAllProject = async () => {
   }
 };
 
-export const getProjectById = async (req, res) => {
+export const getProjectById = async (id) => {
   try {
-    const projectId = req.params.id;
+    const projectId = id;
     const project = await Project.findById(projectId)
       .populate("createdBy", "name")
       .populate("tasks");
@@ -67,10 +67,10 @@ export const getProjectById = async (req, res) => {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    return res.status(200).json(project);
+    return project;
   } catch (error) {
     console.error("Get Project By Id Error:", error);
-    return res.status(500).json({ message: "Failed to retrieve project" });
+    throw new Error(error || "Get Project By Id Error:");
   }
 };
 
@@ -100,7 +100,7 @@ export const updateProject = async (projectId, updateData) => {
     createdAt: project.createdAt,
     members: project.members,
     invites: project.invites,
-    tasks: project.tasks
+    tasks: project.tasks,
   };
 };
 
@@ -127,7 +127,7 @@ export const deleteProject = async (projectId) => {
 
   return {
     success: true,
-    projectId
+    projectId,
   };
 };
 
@@ -151,7 +151,9 @@ export const deleteAllUserProjects = async (req, res) => {
 
     if (projectCount === 0) {
       await session.abortTransaction();
-      return res.status(404).json({ message: "No projects found for the user" });
+      return res
+        .status(404)
+        .json({ message: "No projects found for the user" });
     }
 
     // Delete all projects within the transaction
@@ -168,16 +170,16 @@ export const deleteAllUserProjects = async (req, res) => {
     // Update user role and clear projects array within the transaction
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { 
-        $set: { 
-          role: "Member", 
-          projects: [] 
-        } 
+      {
+        $set: {
+          role: "Member",
+          projects: [],
+        },
       },
-      { 
+      {
         new: true,
         session,
-        runValidators: true
+        runValidators: true,
       }
     );
 
@@ -194,14 +196,13 @@ export const deleteAllUserProjects = async (req, res) => {
       message: "All projects deleted and user role updated to Member",
       user: updatedUser,
     });
-
   } catch (error) {
     await session.abortTransaction();
     console.error("Delete All User Projects Error:", error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
       message: "Failed to delete projects and update user role",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   } finally {
     session.endSession();
