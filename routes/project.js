@@ -87,6 +87,19 @@ router.get("/", TokenVerify, async (req, res) => {
 
 
 // Get a project by ID
+const safeStringify = (obj) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return; // Omit circular reference
+      }
+      seen.add(value);
+    }
+    return value;
+  });
+};
+
 router.get("/:id", TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
@@ -97,15 +110,22 @@ router.get("/:id", TokenVerify, async (req, res) => {
       return res.status(200).json(JSON.parse(cachedProject));
     }
 
-    const project = await getProjectById(req, res);
+    // Get project without passing `req` and `res`
+    const project = await getProjectById(id);
 
-    await cacheValue(cacheKey, JSON.stringify(project), 3600); // Cache for 1 hour
+    // Use safeStringify to handle circular references
+    await cacheValue(cacheKey, safeStringify(project), 3600); // Cache for 1 hour
     res.status(200).json(project);
   } catch (error) {
-    console.error('Error fetching project by ID:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching project by ID:", error);
+
+    // Check if headers are already sent to prevent ERR_HTTP_HEADERS_SENT
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Internal Server Error" });
+    }
   }
 });
+
 
 // Update a project
 router.put("/:id", TokenVerify, AdminCheck, async (req, res) => {
