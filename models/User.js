@@ -25,12 +25,12 @@ const userSchema = new Schema(
     password: {
       type: String,
     },
-    role: {
+    role:[ {
       type: String,
       enum: ["Admin", "Member"],
       default: "Member",
       index: true,
-    },
+    }],
     projects: [
       {
         type: mongoose.Schema.Types.ObjectId,

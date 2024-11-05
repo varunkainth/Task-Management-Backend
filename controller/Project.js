@@ -33,13 +33,10 @@ export const ProjectCreate = async (req, res) => {
       .populate("createdBy", "name")
       .exec();
 
-    return res.status(201).json({
-      project: populatedProject,
-      message: "Project created successfully",
-    });
+    return populatedProject;
   } catch (error) {
     console.error("Project Create Error:", error);
-    return res.status(500).json({ message: "Failed to create project" });
+    throw new Error(error);
   }
 };
 
