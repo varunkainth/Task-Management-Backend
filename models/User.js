@@ -25,12 +25,14 @@ const userSchema = new Schema(
     password: {
       type: String,
     },
-    role:[ {
-      type: String,
-      enum: ["Admin", "Member"],
-      default: "Member",
-      index: true,
-    }],
+    role: [
+      {
+        type: String,
+        enum: ["Admin", "Member"],
+        default: "Member",
+        index: true,
+      },
+    ],
     projects: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -75,6 +77,23 @@ const userSchema = new Schema(
     totp_qr_url: {
       type: String,
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    deactivatedAt: {
+      type: Date,
+    },
+    preferences: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Notification",
+      },
+      {
+        type: String,
+        enum: ["language", "theme"],
+      },
+    ],
   },
   {
     timestamps: true,
@@ -86,7 +105,7 @@ userSchema.pre("save", async function (next) {
   const user = this;
   if (user.isModified("password")) {
     try {
-      user.password = await bcrypt.hash(user.password, 11);
+      user.password =  bcrypt.hash(user.password, 11);
     } catch (err) {
       return next(err);
     }

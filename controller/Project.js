@@ -205,3 +205,111 @@ export const deleteAllUserProjects = async (req, res) => {
     session.endSession();
   }
 };
+
+export const addMemberToProject = async (projectId, memberId) => {
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.members.includes(memberId)) {
+    throw new Error("Member already part of the project");
+  }
+
+  project.members.push(memberId);
+  await project.save();
+
+  return project;
+};
+
+export const removeMemberFromProject = async (projectId, memberId) => {
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  project.members = project.members.filter((id) => id.toString() !== memberId);
+  await project.save();
+
+  return project;
+};
+
+export const archiveProject = async (projectId) => {
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  project.isArchived = true;
+  await project.save();
+
+  return project;
+};
+
+export const restoreArchivedProject = async (projectId) => {
+  const project = await Project.findById(projectId);
+  if (!project || !project.isArchived) {
+    throw new Error("Project not found or not archived");
+  }
+
+  project.isArchived = false;
+  await project.save();
+
+  return project;
+};
+
+export const searchProjects = async (query) => {
+  const projects = await Project.find({
+    $or: [
+      { name: new RegExp(query, "i") },
+      { description: new RegExp(query, "i") },
+    ],
+  }).populate("createdBy", "name");
+
+  return projects;
+};
+
+export const getUserProjects = async (userId) => {
+  const projects = await Project.find({ createdBy: userId }).populate(
+    "createdBy",
+    "name"
+  );
+  return projects;
+};
+
+export const getProjectStats = async (projectId) => {
+  const project = await Project.findById(projectId).populate("tasks");
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const totalTasks = project.tasks.length;
+  const completedTasks = project.tasks.filter((task) => task.isCompleted)
+    .length;
+
+  return {
+    totalTasks,
+    completedTasks,
+    pendingTasks: totalTasks - completedTasks,
+  };
+};
+
+export const cloneProject = async (projectId) => {
+  const project = await Project.findById(projectId).populate("tasks");
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const clonedProject = new Project({
+    name: `${project.name} (Copy)`,
+    description: project.description,
+    createdBy: project.createdBy,
+    tasks: [...project.tasks],
+    members: [...project.members],
+  });
+
+  await clonedProject.save();
+
+  return clonedProject;
+};
+

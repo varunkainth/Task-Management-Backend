@@ -51,6 +51,9 @@ const subTaskSchema = new Schema(
         },
       },
     ],
+    activityLog:[{
+      type:String
+    }]
   },
   {
     timestamps: true,

@@ -34,7 +34,10 @@ router.post('/create', TokenVerify, upload.array('files'), async (req, res) => {
 router.get('/get-all', TokenVerify, async (req, res) => {
   try {
     const { priority, dueDate, projectId, sortBy, page = 1, limit = 10 } = req.query;
-    const cacheKey = `tasks:filters:${priority || 'all'}:${dueDate || 'all'}:${projectId || 'all'}:${sortBy || 'createdAt'}:${page}:${limit}`;
+    
+    // Ensure all values are converted to strings for cache key
+    const cacheKey = `tasks:filters:${priority || 'all'}:${dueDate || 'all'}:${projectId || 'all'}:${sortBy || 'createdAt'}:${String(page)}:${String(limit)}`;
+    
     const cachedTasks = await getCachedValue(cacheKey);
 
     if (cachedTasks) {
@@ -57,14 +60,15 @@ router.get('/:id', TokenVerify, async (req, res) => {
     const { id } = req.params;
     const cacheKey = `task:${id}`;
     const cachedTask = await getCachedValue(cacheKey);
+    // console.log(cachedTask)
 
     if (cachedTask) {
       return res.status(200).json(JSON.parse(cachedTask));
     }
 
-    const task = await getTaskDetails(req, res);
+    const task = await getTaskDetails(id);
 
-    await cacheValue(cacheKey, JSON.stringify(task), 3600); // Cache for 1 hour
+    await cacheValue(cacheKey, JSON.stringify(task), 3600); 
     res.status(200).json(task);
   } catch (error) {
     console.error('GET TASK DETAILS Error:', error);

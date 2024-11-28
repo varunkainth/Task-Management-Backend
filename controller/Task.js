@@ -47,7 +47,8 @@ export const CreateTask = async (req, res) => {
     }
 
     const savedTask = await newTask.save();
-    res.status(201).json({ message: "Task created successfully", task: savedTask });
+    return savedTask
+    // res.status(201).json({ message: "Task created successfully", task: savedTask });
   } catch (err) {
     console.error("Task Create Error:", err);
     res.status(500).json({ message: "An error occurred while creating the task." });
@@ -66,7 +67,7 @@ export const getAllTask = async (req, res) => {
 
     const options = {
       sort: sortBy ? { [sortBy]: 1 } : { createdAt: -1 },
-      skip: (page > 0 ? page - 1 : 0) * limit,
+      skip: (page > 0 ? page - 1 : 0) * parseInt(limit, 10),
       limit: Math.max(parseInt(limit, 10), 1),
       populate: { path: "projectId", select: "name" },
     };
@@ -77,7 +78,7 @@ export const getAllTask = async (req, res) => {
       .limit(options.limit)
       .populate(options.populate);
 
-    res.status(200).json(tasks);
+    return tasks;
   } catch (err) {
     console.error("GET ALL TASK Error:", err);
     res.status(500).json({ message: "An error occurred while fetching tasks." });
@@ -85,14 +86,14 @@ export const getAllTask = async (req, res) => {
 };
 
 // Get details of a specific task
-export const getTaskDetails = async (req, res) => {
+export const getTaskDetails = async (id) => {
   try {
-    const taskId = req.params.id;
+    const taskId = id;
     const task = await Task.findById(taskId).populate("projectId");
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
-    res.status(200).json(task);
+    return task;
   } catch (err) {
     console.error("GET TASK DETAILS Error:", err);
     res.status(500).json({ message: "An error occurred while fetching task details." });
@@ -265,6 +266,133 @@ export const removeAttachmentFromTask = async (req, res) => {
   } catch (err) {
     console.error("REMOVE ATTACHMENT Error:", err);
     res.status(500).json({ message: "An error occurred while removing the attachment." });
+  }
+};
+
+export const batchUpdateTasks = async (req, res) => {
+  try {
+    const { taskIds, updateData } = req.body; // e.g., { taskIds: [], updateData: { status: "Completed" } }
+
+    if (!taskIds || !taskIds.length) {
+      return res.status(400).json({ message: "Task IDs are required" });
+    }
+
+    const updatedTasks = await Task.updateMany(
+      { _id: { $in: taskIds } },
+      { $set: updateData },
+      { multi: true }
+    );
+
+    res.status(200).json({
+      message: `${updatedTasks.nModified} tasks updated successfully`,
+      updatedTasks,
+    });
+  } catch (err) {
+    console.error("BATCH UPDATE TASKS Error:", err);
+    res.status(500).json({ message: "An error occurred while updating tasks." });
+  }
+};
+
+export const addTaskDependency = async (req, res) => {
+  try {
+    const { taskId, dependentTaskId } = req.body;
+
+    const task = await Task.findById(taskId);
+    const dependentTask = await Task.findById(dependentTaskId);
+
+    if (!task || !dependentTask) {
+      return res.status(404).json({ message: "One or both tasks not found" });
+    }
+
+    if (!task.dependencies.includes(dependentTaskId)) {
+      task.dependencies.push(dependentTaskId);
+    }
+
+    await task.save();
+    res.status(200).json({ message: "Dependency added successfully", task });
+  } catch (err) {
+    console.error("ADD TASK DEPENDENCY Error:", err);
+    res.status(500).json({ message: "An error occurred while adding dependency." });
+  }
+};
+
+export const updateTaskProgress = async (req, res) => {
+  try {
+    const { taskId, progress } = req.body;
+
+    if (progress < 0 || progress > 100) {
+      return res.status(400).json({ message: "Progress must be between 0 and 100." });
+    }
+
+    const task = await Task.findByIdAndUpdate(
+      taskId,
+      { $set: { progress } },
+      { new: true }
+    );
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    res.status(200).json({ message: "Task progress updated", task });
+  } catch (err) {
+    console.error("UPDATE TASK PROGRESS Error:", err);
+    res.status(500).json({ message: "An error occurred while updating progress." });
+  }
+};
+
+export const reassignTask = async (req, res) => {
+  try {
+    const { taskId, newUserId } = req.body;
+
+    const task = await Task.findById(taskId);
+    const user = await User.findById(newUserId);
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    task.users = [newUserId];
+    await task.save();
+
+    res.status(200).json({ message: "Task reassigned successfully", task });
+  } catch (err) {
+    console.error("REASSIGN TASK Error:", err);
+    res.status(500).json({ message: "An error occurred while reassigning task." });
+  }
+};
+
+export const getTaskActivityLog = async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    res.status(200).json({ message: "Task activity log retrieved", logs: task.activityLog });
+  } catch (err) {
+    console.error("GET TASK ACTIVITY LOG Error:", err);
+    res.status(500).json({ message: "An error occurred while fetching activity log." });
+  }
+};
+
+export const getOverdueTasks = async (req, res) => {
+  try {
+    const overdueTasks = await Task.find({ dueDate: { $lt: new Date() }, status: { $ne: "Completed" } });
+
+    if (!overdueTasks.length) {
+      return res.status(404).json({ message: "No overdue tasks found" });
+    }
+
+    res.status(200).json({ overdueTasks });
+  } catch (err) {
+    console.error("GET OVERDUE TASKS Error:", err);
+    res.status(500).json({ message: "An error occurred while fetching overdue tasks." });
   }
 };
 

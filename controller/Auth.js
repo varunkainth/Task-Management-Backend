@@ -12,7 +12,7 @@ export const userRegister = async (req, res) => {
   try {
     const { name, password, email, phoneNumber, gender, dob } = req.body;
     // print all values
-    console.log(name, password, email, phoneNumber, gender, dob);
+    // console.log(name, password, email, phoneNumber, gender, dob);
 
     // Validate input
     if (
@@ -51,7 +51,7 @@ export const userRegister = async (req, res) => {
     // TOTP
     const secret = new TOTP_GEN();
     const totp = await secret.generateTOTP();
-    console.log("totp", totp);
+    // console.log("totp", totp);
 
     // Create and save user
     const user = new User({
@@ -128,7 +128,14 @@ export const userLogin = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     // console.log("user",user)
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = bcrypt.compare(password, user.password);
+    console.log(
+      user.password,
+      "valid password",
+      isValidPassword,
+      "Current Password",
+      password
+    );
     if (!isValidPassword) {
       return res.status(400).json({ message: "Invalid password" });
     }
@@ -205,9 +212,9 @@ export const createPasswordResetToken = async (req, res) => {
     const token = Math.random().toString(36).substr(2);
 
     const passwordResetToken = new PasswordResetToken({
-      userId : user._id,
+      userId: user._id,
       token,
-      expiresAt: new Date(Date.now() + 3600000), 
+      expiresAt: new Date(Date.now() + 3600000),
     });
 
     const savedToken = await passwordResetToken.save();
@@ -610,5 +617,147 @@ export const verifyTOTP = async (req, res) => {
   } catch (err) {
     console.error("Verify TOTP Error:", err);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const updateUserProfile = async (req, res) => {
+  try {
+    const { name, phoneNumber, gender, dateOfBirth } = req.body;
+    const userId = req.user._id; // Assuming authenticated middleware sets this
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        name,
+        phoneNumber,
+        gender,
+        dateOfBirth,
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      user: {
+        ...updatedUser._doc,
+        password: undefined,
+        totp_secret: undefined,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+};
+
+export const changeUserPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+
+    // Verify current password
+    const isMatch =  bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    user.password = newPassword
+    await user.save();
+
+    res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to change password" });
+  }
+};
+
+export const setupTwoFactorAuthentication = async (req, res) => {
+  try {
+    const user = req.user;
+    const secret = new TOTP_GEN();
+    const totp = await secret.generateTOTP();
+
+    user.totp_secret = totp.secret;
+    user.totp_qr_url = totp.qrCodeUrl;
+    await user.save();
+
+    res.status(200).json({
+      message: "Two-Factor Authentication Setup",
+      qrCodeUrl: totp.qrCodeUrl,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to setup 2FA" });
+  }
+};
+
+export const disableTwoFactorAuthentication = async (req, res) => {
+  try {
+    const user = req.user;
+    user.totp_secret = undefined;
+    user.totp_qr_url = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Two-Factor Authentication Disabled" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to disable 2FA" });
+  }
+};
+
+export const deactivateAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    await User.findByIdAndUpdate(userId, {
+      isActive: false, // Add this field to your User schema
+      deactivatedAt: new Date(),
+    });
+
+    res.status(200).json({ message: "Account deactivated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to deactivate account" });
+  }
+};
+
+export const reactivateAccount = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email, isActive: false });
+
+    if (!user) {
+      return res.status(404).json({ message: "No deactivated account found" });
+    }
+
+    user.isActive = true;
+    user.deactivatedAt = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Account reactivated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to reactivate account" });
+  }
+};
+
+export const updateUserPreferences = async (req, res) => {
+  try {
+    const { notifications, theme, language } = req.body;
+    const userId = req.user._id;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        preferences: [
+          { key: "notifications", value: notifications },
+          { key: "theme", value: theme },
+          { key: "language", value: language },
+        ],
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: "Preferences updated",
+      preferences: updatedUser.preferences,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update preferences" });
   }
 };
