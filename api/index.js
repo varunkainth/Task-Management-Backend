@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { client as redisClient } from "../config/redis.js";
 import admin from "firebase-admin";
 import FirebaseServiceCred from "../config/FireseBaseCred.js";
+import { closeConnection, connectToDatabase } from "../config/PostgreSqlConnection.js";
 
 dotenv.config();
 
@@ -14,6 +15,9 @@ const startServer = async () => {
     // Connect to the database
     await DataBaseConnection();
     console.log("Database connected");
+
+    await connectToDatabase()
+    console.log("PostgreSQL connected");
 
     // Ensure Redis is connected
     if (!redisClient.isOpen) {
@@ -62,6 +66,9 @@ const shutdown = async () => {
     // Close database connection
     await DataBaseConnectionClose(); // Assuming you have a close method
     console.log("Database connection closed");
+
+    await closeConnection()
+    console.log("PostgreSql Connection closed");
 
     process.exit(0);
   } catch (err) {
