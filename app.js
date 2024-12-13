@@ -30,8 +30,7 @@ app.use(
     origin: [
       "*",
       "https://cautious-computing-machine-q9654rrwj74h4p67-3000.app.github.dev",
-      "*",
-      "https://scaling-potato-5gp7799jpw529jp-3000.app.github.dev"
+      "https://solid-journey-w9xq566wq9439rxp-3000.app.github.dev"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     // allowedHeaders: ["Content-Type", "Authorization"],

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import User from "../models/User.js";
 
@@ -32,36 +33,29 @@ export const ProjectCreate = async (req, res) => {
       .populate("createdBy", "name")
       .exec();
 
-    return res.status(201).json({
-      project: populatedProject,
-      message: "Project created successfully",
-    });
+    return populatedProject;
   } catch (error) {
     console.error("Project Create Error:", error);
-    return res.status(500).json({ message: "Failed to create project" });
+    throw new Error(error);
   }
 };
 
-export const getAllProject = async (req, res) => {
+export const getAllProject = async () => {
   try {
     const projects = await Project.find()
       .populate("createdBy", "name")
       .populate("tasks");
 
-    if (projects.length === 0) {
-      return res.status(404).json({ message: "No projects found" });
-    }
-
-    return res.status(200).json(projects);
+    return projects;
   } catch (error) {
     console.error("Get All Projects Error:", error);
-    return res.status(500).json({ message: "Failed to retrieve projects" });
+    throw error; // Let the route handler catch this
   }
 };
 
-export const getProjectById = async (req, res) => {
+export const getProjectById = async (id) => {
   try {
-    const projectId = req.params.id;
+    const projectId = id;
     const project = await Project.findById(projectId)
       .populate("createdBy", "name")
       .populate("tasks");
@@ -70,105 +64,252 @@ export const getProjectById = async (req, res) => {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    return res.status(200).json(project);
+    return project;
   } catch (error) {
     console.error("Get Project By Id Error:", error);
-    return res.status(500).json({ message: "Failed to retrieve project" });
+    throw new Error(error || "Get Project By Id Error:");
   }
 };
 
-export const updateProject = async (req, res) => {
-  try {
-    const projectId = req.params.id;
-    const { name, description } = req.body;
+export const updateProject = async (projectId, updateData) => {
+  const { name, description } = updateData;
 
-    if (!name && !description) {
-      return res.status(400).json({ message: "No fields provided for update" });
-    }
-
-    const project = await Project.findById(projectId);
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
-    }
-
-    if (name) project.name = name;
-    if (description) project.description = description;
-
-    await project.save();
-
-    return res.status(200).json({ message: "Project updated successfully" });
-  } catch (error) {
-    console.error("Update Project Error:", error);
-    return res.status(500).json({ message: "Failed to update project" });
+  if (!name && !description) {
+    throw new Error("No fields provided for update");
   }
+
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (name) project.name = name;
+  if (description) project.description = description;
+
+  await project.save();
+
+  // Return the updated project
+  return {
+    id: project._id,
+    name: project.name,
+    description: project.description,
+    createdBy: project.createdBy,
+    createdAt: project.createdAt,
+    members: project.members,
+    invites: project.invites,
+    tasks: project.tasks,
+  };
 };
 
-export const deleteProject = async (req, res) => {
-  try {
-    const projectId = req.params.id;
-    const project = await Project.findById(projectId);
+export const deleteProject = async (projectId) => {
+  const project = await Project.findById(projectId);
 
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
-    }
-
-    // Check if the project has tasks or other dependencies
-    if (project.tasks.length > 0) {
-      return res.status(400).json({ message: "Project has associated tasks and cannot be deleted" });
-    }
-
-    await project.remove();
-
-    // Update user's projects list
-    await User.updateMany(
-      { projects: projectId },
-      { $pull: { projects: projectId } }
-    );
-
-    return res.status(200).json({ message: "Project deleted successfully" });
-  } catch (error) {
-    console.error("Delete Project Error:", error);
-    return res.status(500).json({ message: "Failed to delete project" });
+  if (!project) {
+    throw new Error("Project not found");
   }
+
+  // Check if the project has tasks or other dependencies
+  if (project.tasks.length > 0) {
+    throw new Error("Project has associated tasks and cannot be deleted");
+  }
+
+  // Use deleteOne() instead of remove() as remove() is deprecated
+  await Project.deleteOne({ _id: projectId });
+
+  // Update user's projects list
+  await User.updateMany(
+    { projects: projectId },
+    { $pull: { projects: projectId } }
+  );
+
+  return {
+    success: true,
+    projectId,
+  };
 };
 
 export const deleteAllUserProjects = async (req, res) => {
+  // Start a session for transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userId = req.user._id;
 
-    // Fetch the user
-    const user = await User.findById(userId);
+    // Fetch the user with session
+    const user = await User.findById(userId).session(session);
     if (!user) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Fetch all projects created by the user
-    const projects = await Project.find({ createdBy: userId });
+    // Check project count efficiently instead of fetching all projects
+    const projectCount = await Project.countDocuments({ createdBy: userId });
 
-    if (projects.length > 0) {
-      // Delete all projects
-      await Project.deleteMany({ createdBy: userId });
-
-      // Update the user's role
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        { $set: { role: "Member", projects: [] } },
-        { new: true }
-      );
-
-      if (!updatedUser) {
-        return res.status(500).json({ message: "Failed to update user role" });
-      }
-
-      return res.status(200).json({
-        message: "All projects deleted and user role updated to Member",
-        user: updatedUser,
-      });
-    } else {
-      return res.status(404).json({ message: "No projects found for the user" });
+    if (projectCount === 0) {
+      await session.abortTransaction();
+      return res
+        .status(404)
+        .json({ message: "No projects found for the user" });
     }
+
+    // Delete all projects within the transaction
+    const deleteResult = await Project.deleteMany(
+      { createdBy: userId },
+      { session }
+    );
+
+    if (!deleteResult.acknowledged) {
+      await session.abortTransaction();
+      return res.status(500).json({ message: "Failed to delete projects" });
+    }
+
+    // Update user role and clear projects array within the transaction
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          role: "Member",
+          projects: [],
+        },
+      },
+      {
+        new: true,
+        session,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedUser) {
+      await session.abortTransaction();
+      return res.status(500).json({ message: "Failed to update user role" });
+    }
+
+    // Commit the transaction if everything succeeded
+    await session.commitTransaction();
+
+    return res.status(200).json({
+      success: true,
+      message: "All projects deleted and user role updated to Member",
+      user: updatedUser,
+    });
   } catch (error) {
+    await session.abortTransaction();
     console.error("Delete All User Projects Error:", error);
-    return res.status(500).json({ message: "Failed to delete projects and update user role" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete projects and update user role",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    session.endSession();
   }
 };
+
+export const addMemberToProject = async (projectId, memberId) => {
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  if (project.members.includes(memberId)) {
+    throw new Error("Member already part of the project");
+  }
+
+  project.members.push(memberId);
+  await project.save();
+
+  return project;
+};
+
+export const removeMemberFromProject = async (projectId, memberId) => {
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  project.members = project.members.filter((id) => id.toString() !== memberId);
+  await project.save();
+
+  return project;
+};
+
+export const archiveProject = async (projectId) => {
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  project.isArchived = true;
+  await project.save();
+
+  return project;
+};
+
+export const restoreArchivedProject = async (projectId) => {
+  const project = await Project.findById(projectId);
+  if (!project || !project.isArchived) {
+    throw new Error("Project not found or not archived");
+  }
+
+  project.isArchived = false;
+  await project.save();
+
+  return project;
+};
+
+export const searchProjects = async (query) => {
+  const projects = await Project.find({
+    $or: [
+      { name: new RegExp(query, "i") },
+      { description: new RegExp(query, "i") },
+    ],
+  }).populate("createdBy", "name");
+
+  return projects;
+};
+
+export const getUserProjects = async (userId) => {
+  const projects = await Project.find({ createdBy: userId }).populate(
+    "createdBy",
+    "name"
+  );
+  return projects;
+};
+
+export const getProjectStats = async (projectId) => {
+  const project = await Project.findById(projectId).populate("tasks");
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const totalTasks = project.tasks.length;
+  const completedTasks = project.tasks.filter((task) => task.isCompleted)
+    .length;
+
+  return {
+    totalTasks,
+    completedTasks,
+    pendingTasks: totalTasks - completedTasks,
+  };
+};
+
+export const cloneProject = async (projectId) => {
+  const project = await Project.findById(projectId).populate("tasks");
+  if (!project) {
+    throw new Error("Project not found");
+  }
+
+  const clonedProject = new Project({
+    name: `${project.name} (Copy)`,
+    description: project.description,
+    createdBy: project.createdBy,
+    tasks: [...project.tasks],
+    members: [...project.members],
+  });
+
+  await clonedProject.save();
+
+  return clonedProject;
+};
+

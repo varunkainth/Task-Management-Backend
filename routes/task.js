@@ -20,7 +20,7 @@ import { cacheValue, getCachedValue, deleteCachedValue } from '../config/redis.j
 const router = express.Router();
 
 // Create a new task
-router.post('/tasks', TokenVerify, upload.array('files'), async (req, res) => {
+router.post('/create', TokenVerify, upload.array('files'), async (req, res) => {
   try {
     await CreateTask(req, res);
     await deleteCachedValue('allTasks'); // Invalidate the list cache
@@ -31,10 +31,13 @@ router.post('/tasks', TokenVerify, upload.array('files'), async (req, res) => {
 });
 
 // Get all tasks with optional filters
-router.get('/tasks', TokenVerify, async (req, res) => {
+router.get('/get-all', TokenVerify, async (req, res) => {
   try {
     const { priority, dueDate, projectId, sortBy, page = 1, limit = 10 } = req.query;
-    const cacheKey = `tasks:filters:${priority || 'all'}:${dueDate || 'all'}:${projectId || 'all'}:${sortBy || 'createdAt'}:${page}:${limit}`;
+    
+    // Ensure all values are converted to strings for cache key
+    const cacheKey = `tasks:filters:${priority || 'all'}:${dueDate || 'all'}:${projectId || 'all'}:${sortBy || 'createdAt'}:${String(page)}:${String(limit)}`;
+    
     const cachedTasks = await getCachedValue(cacheKey);
 
     if (cachedTasks) {
@@ -52,19 +55,20 @@ router.get('/tasks', TokenVerify, async (req, res) => {
 });
 
 // Get details of a specific task
-router.get('/tasks/:id', TokenVerify, async (req, res) => {
+router.get('/:id', TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const cacheKey = `task:${id}`;
     const cachedTask = await getCachedValue(cacheKey);
+    // console.log(cachedTask)
 
     if (cachedTask) {
       return res.status(200).json(JSON.parse(cachedTask));
     }
 
-    const task = await getTaskDetails(req, res);
+    const task = await getTaskDetails(id);
 
-    await cacheValue(cacheKey, JSON.stringify(task), 3600); // Cache for 1 hour
+    await cacheValue(cacheKey, JSON.stringify(task), 3600); 
     res.status(200).json(task);
   } catch (error) {
     console.error('GET TASK DETAILS Error:', error);
@@ -73,7 +77,7 @@ router.get('/tasks/:id', TokenVerify, async (req, res) => {
 });
 
 // Update a task
-router.put('/tasks/:id', TokenVerify, async (req, res) => {
+router.put('/update/:id', TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     await getUpdateTask(req, res);
@@ -88,7 +92,7 @@ router.put('/tasks/:id', TokenVerify, async (req, res) => {
 });
 
 // Delete a task
-router.delete('/tasks/:id', TokenVerify, AdminCheck, async (req, res) => {
+router.delete('/delete/:id', TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { id } = req.params;
     await deleteTask(req, res);
@@ -103,7 +107,7 @@ router.delete('/tasks/:id', TokenVerify, AdminCheck, async (req, res) => {
 });
 
 // Assign a task to a user
-router.post('/tasks/:id/users/:userId', TokenVerify, async (req, res) => {
+router.post('/users/assign/:userId/:id', TokenVerify, async (req, res) => {
   try {
     await assignTask(req, res);
     await deleteCachedValue(`task:${req.params.id}`);
@@ -115,7 +119,7 @@ router.post('/tasks/:id/users/:userId', TokenVerify, async (req, res) => {
 });
 
 // Update task status
-router.patch('/tasks/:id/status', TokenVerify, async (req, res) => {
+router.patch('/update-status/:id', TokenVerify, async (req, res) => {
   try {
     await updateStatus(req, res);
     await deleteCachedValue(`task:${req.params.id}`);
@@ -127,7 +131,7 @@ router.patch('/tasks/:id/status', TokenVerify, async (req, res) => {
 });
 
 // Get tasks assigned to a user
-router.get('/users/:userId/tasks', TokenVerify, async (req, res) => {
+router.get('/users/assign/:userId', TokenVerify, async (req, res) => {
   try {
     const { userId } = req.params;
     const cacheKey = `tasks:user:${userId}`;
@@ -148,7 +152,7 @@ router.get('/users/:userId/tasks', TokenVerify, async (req, res) => {
 });
 
 // Get tasks for a specific project
-router.get('/projects/:projectId/tasks', TokenVerify, async (req, res) => {
+router.get('/projects/:projectId', TokenVerify, async (req, res) => {
   try {
     const { projectId } = req.params;
     const cacheKey = `tasks:project:${projectId}`;
@@ -169,7 +173,7 @@ router.get('/projects/:projectId/tasks', TokenVerify, async (req, res) => {
 });
 
 // Add attachments to a task
-router.patch('/tasks/:id/attachments', TokenVerify, upload.array('files'), async (req, res) => {
+router.patch('/attachments/add/:id', TokenVerify, upload.array('files'), async (req, res) => {
   try {
     await addAttachmentsToTask(req, res);
     await deleteCachedValue(`task:${req.params.id}`);
@@ -180,7 +184,7 @@ router.patch('/tasks/:id/attachments', TokenVerify, upload.array('files'), async
 });
 
 // Remove an attachment from a task
-router.delete('/tasks/:id/attachments/:attachmentId', TokenVerify, AdminCheck, async (req, res) => {
+router.delete('/attachments/remove/:attachmentId/:id', TokenVerify, AdminCheck, async (req, res) => {
   try {
     await removeAttachmentFromTask(req, res);
     await deleteCachedValue(`task:${req.params.id}`);

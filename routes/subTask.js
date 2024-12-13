@@ -16,7 +16,7 @@ import upload from '../middleware/multer.js'; // Assuming you have a multer midd
 const router = express.Router();
 
 // Create a sub-task with file attachments (Requires authentication)
-router.post('/tasks/:id/subtasks', TokenVerify, upload.array('files'), async (req, res) => {
+router.post('/tasks/:id', TokenVerify, upload.array('files'), async (req, res) => {
   try {
     const newSubTask = await createSubTask(req, res);
 
@@ -31,7 +31,7 @@ router.post('/tasks/:id/subtasks', TokenVerify, upload.array('files'), async (re
 });
 
 // Get details of a sub-task (Requires authentication)
-router.get('/subtasks/:id', TokenVerify, async (req, res) => {
+router.get('/:id', TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const cacheKey = `subtask:${id}`;
@@ -52,7 +52,7 @@ router.get('/subtasks/:id', TokenVerify, async (req, res) => {
 });
 
 // Get all sub-tasks for a specific task (Requires authentication)
-router.get('/tasks/:id/subtasks', TokenVerify, async (req, res) => {
+router.get('/tasks/:id', TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const cacheKey = `subtasks:task:${id}`;
@@ -73,7 +73,7 @@ router.get('/tasks/:id/subtasks', TokenVerify, async (req, res) => {
 });
 
 // Update a sub-task (Requires authentication)
-router.put('/subtasks/:id', TokenVerify, async (req, res) => {
+router.put('/:id', TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const updatedSubTask = await updateSubTask(req, res);
@@ -90,7 +90,7 @@ router.put('/subtasks/:id', TokenVerify, async (req, res) => {
 });
 
 // Delete a sub-task (Requires authentication and possibly admin role)
-router.delete('/subtasks/:id', TokenVerify, AdminCheck, async (req, res) => {
+router.delete('/:id', TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { id } = req.params;
     const deletedSubTask = await deleteSubTask(req, res);
@@ -107,7 +107,7 @@ router.delete('/subtasks/:id', TokenVerify, AdminCheck, async (req, res) => {
 });
 
 // Add attachments to a sub-task (Requires authentication)
-router.patch('/subtasks/:id/attachments', TokenVerify, upload.array('files'), async (req, res) => {
+router.patch('/:id/attachments', TokenVerify, upload.array('files'), async (req, res) => {
   try {
     const updatedSubTask = await addAttachmentsToSubTask(req, res);
 
@@ -122,7 +122,7 @@ router.patch('/subtasks/:id/attachments', TokenVerify, upload.array('files'), as
 });
 
 // Remove an attachment from a sub-task (Requires authentication and possibly admin role)
-router.delete('/subtasks/:subtaskId/attachments/:attachmentId', TokenVerify, AdminCheck, async (req, res) => {
+router.delete('/attachments/:subtaskId/:attachmentId', TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { subtaskId, attachmentId } = req.params;
     const updatedSubTask = await removeAttachmentFromSubTask(req, res);

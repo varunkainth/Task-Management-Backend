@@ -208,3 +208,65 @@ export const removeAttachmentFromSubTask = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+// Bulk update sub-tasks
+export const bulkUpdateSubTasks = async (req, res) => {
+  try {
+    const { subTaskUpdates } = req.body; // Array of { id, updates }
+    const results = await Promise.all(
+      subTaskUpdates.map(({ id, updates }) =>
+        SubTask.findByIdAndUpdate(id, updates, { new: true })
+      )
+    );
+    res.status(200).json({ message: "Sub-tasks updated", results });
+  } catch (error) {
+    console.error("Bulk Update Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getAllSubTasksWithPagination = async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const { page = 1, limit = 10 } = req.query;
+
+    const subTasks = await SubTask.find({ taskId })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const total = await SubTask.countDocuments({ taskId });
+    res.status(200).json({ subTasks, total, page, pages: Math.ceil(total / limit) });
+  } catch (error) {
+    console.error("Pagination Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const searchAndFilterSubTasks = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { status, priority, dueDate, searchQuery } = req.query;
+
+    const filters = { taskId };
+    if (status) filters.status = status;
+    if (priority) filters.priority = priority;
+    if (dueDate) filters.dueDate = new Date(dueDate);
+    if (searchQuery) filters.title = new RegExp(searchQuery, "i");
+
+    const subTasks = await SubTask.find(filters);
+    res.status(200).json(subTasks);
+  } catch (error) {
+    console.error("Search and Filter Error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+const logSubTaskActivity = async (subTaskId, activity) => {
+  // Log the activity, e.g., in a separate "Activity" collection or task object
+  const subTask = await SubTask.findById(subTaskId);
+  if (subTask) {
+    subTask.activityLog.push(activity); // Assuming `activityLog` is an array in the model
+    await subTask.save();
+  }
+};
+

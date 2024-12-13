@@ -1,12 +1,10 @@
-import app from "./app.js";
-import {
-  DataBaseConnection,
-  DataBaseConnectionClose,
-} from "./config/DbConnection.js";
+import app from "../app.js";
+import {DataBaseConnection,DataBaseConnectionClose} from "../config/DbConnection.js";
 import dotenv from "dotenv";
-import { client as redisClient } from "./config/redis.js";
+import { client as redisClient } from "../config/redis.js";
 import admin from "firebase-admin";
-import FirebaseServiceCred from "./config/FireseBaseCred.js";
+import FirebaseServiceCred from "../config/FireseBaseCred.js";
+import { closeConnection, connectToDatabase } from "../config/PostgreSqlConnection.js";
 
 dotenv.config();
 
@@ -17,6 +15,9 @@ const startServer = async () => {
     // Connect to the database
     await DataBaseConnection();
     console.log("Database connected");
+
+    await connectToDatabase()
+    console.log("PostgreSQL connected");
 
     // Ensure Redis is connected
     if (!redisClient.isOpen) {
@@ -39,7 +40,7 @@ const startServer = async () => {
     // Start the server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
-      console.log("Redis URL:", process.env.REDIS_URL);
+      // console.log("Redis URL:", process.env.REDIS_URL);
     });
   } catch (err) {
     console.error(
@@ -65,6 +66,9 @@ const shutdown = async () => {
     // Close database connection
     await DataBaseConnectionClose(); // Assuming you have a close method
     console.log("Database connection closed");
+
+    await closeConnection()
+    console.log("PostgreSql Connection closed");
 
     process.exit(0);
   } catch (err) {

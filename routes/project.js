@@ -6,50 +6,109 @@ import {
   getAllProject,
   getProjectById,
   ProjectCreate,
-  updateProject
+  updateProject,
 } from "../controller/Project.js";
 import TokenVerify from "../middleware/TokenVerification.js";
-import { cacheValue, getCachedValue, deleteCachedValue } from "../config/redis.js";
+import {
+  cacheValue,
+  getCachedValue,
+  deleteCachedValue,
+} from "../config/redis.js";
 
 const router = Router();
 
 // Create a project
-router.post("/projects", TokenVerify, async (req, res) => {
+router.post("/", TokenVerify, async (req, res) => {
   try {
     const newProject = await ProjectCreate(req, res);
 
     // Invalidate the cache for the project list
-    await deleteCachedValue('allProjects');
+    await deleteCachedValue("allProjects");
 
-    res.status(201).json(newProject);
+    return res
+      .status(201)
+      .json({ newProject, message: "Project created successfully" });
   } catch (error) {
-    console.error('Error creating project:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error creating project:", error);
+    return res.status(500).json({ message: "Failed to create project" });
   }
 });
 
 // Get all projects
-router.get("/projects", TokenVerify, async (req, res) => {
+router.get("/", TokenVerify, async (req, res) => {
   try {
-    const cacheKey = 'allProjects';
+    const cacheKey = "allProjects";
     const cachedProjects = await getCachedValue(cacheKey);
 
+    // If cached projects exist, return them
     if (cachedProjects) {
       return res.status(200).json(JSON.parse(cachedProjects));
     }
 
-    const projects = await getAllProject(req, res);
+    // Fetch projects from the database
+    const projects = await getAllProject(); // Fetch projects from DB
 
-    await cacheValue(cacheKey, JSON.stringify(projects), 3600); // Cache for 1 hour
-    res.status(200).json(projects);
+    // Handle case where no projects are found
+    if (!projects || projects.length === 0) {
+      return res.status(200).json([]); // Return empty array instead of 404
+    }
+
+    // Serialize projects to ensure they are JSON-safe
+    const serializedProjects = projects.map((project) => ({
+      id: project._id.toString(), // Ensure ID is converted to string
+      name: project.name,
+      description: project.description || null, // Handle potentially null description
+      createdBy: project.createdBy
+        ? {
+            id: project.createdBy._id?.toString(),
+            name: project.createdBy.name || null, // Ensure createdBy.name is safe
+          }
+        : null,
+      members: project.members || [], // Ensure members is an array
+      invites:
+        project.invites?.map((invitation) => ({
+          id: invitation._id?.toString(),
+          email: invitation.email || null, // Ensure email is safe
+        })) || [],
+      tasks:
+        project.tasks?.map((task) => ({
+          id: task._id?.toString(),
+          title: task.title || null, // Ensure title is safe
+        })) || [],
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+    }));
+
+    // Cache the serialized projects
+    await cacheValue(cacheKey, JSON.stringify(serializedProjects), 3600);
+
+    // Send the response
+    return res.status(200).json(serializedProjects);
   } catch (error) {
-    console.error('Error fetching all projects:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching all projects:", error);
+    // Ensure we don't attempt to send a response more than once
+    return res.status(500).json({
+      message: "Failed to fetch projects",
+      error: error.message,
+    });
   }
 });
 
 // Get a project by ID
-router.get("/projects/:id", TokenVerify, async (req, res) => {
+const safeStringify = (obj) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return; // Omit circular reference
+      }
+      seen.add(value);
+    }
+    return value;
+  });
+};
+
+router.get("/:id", TokenVerify, async (req, res) => {
   try {
     const { id } = req.params;
     const cacheKey = `project:${id}`;
@@ -59,62 +118,118 @@ router.get("/projects/:id", TokenVerify, async (req, res) => {
       return res.status(200).json(JSON.parse(cachedProject));
     }
 
-    const project = await getProjectById(req, res);
+    // Get project without passing `req` and `res`
+    const project = await getProjectById(id);
 
-    await cacheValue(cacheKey, JSON.stringify(project), 3600); // Cache for 1 hour
+    // Use safeStringify to handle circular references
+    await cacheValue(cacheKey, safeStringify(project), 3600); // Cache for 1 hour
     res.status(200).json(project);
   } catch (error) {
-    console.error('Error fetching project by ID:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching project by ID:", error);
+
+    // Check if headers are already sent to prevent ERR_HTTP_HEADERS_SENT
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Internal Server Error" });
+    }
   }
 });
 
 // Update a project
-router.put("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
+router.put("/:id", TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedProject = await updateProject(req, res);
+
+    // Pass only the necessary data to the controller
+    const updatedProject = await updateProject(id, req.body);
 
     // Invalidate cache after update
     await deleteCachedValue(`project:${id}`);
-    await deleteCachedValue('allProjects'); // Invalidate the list cache
+    await deleteCachedValue("allProjects");
 
-    res.status(200).json(updatedProject);
+    res.status(200).json({
+      message: "Project updated successfully",
+      project: updatedProject,
+    });
   } catch (error) {
-    console.error('Error updating project:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error updating project:", error);
+
+    // Handle specific error cases
+    if (error.message === "No fields provided for update") {
+      return res.status(400).json({ message: error.message });
+    }
+    if (error.message === "Project not found") {
+      return res.status(404).json({ message: error.message });
+    }
+
+    // Default error response
+    res.status(500).json({
+      message: "Failed to update project",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 
 // Delete a project
-router.delete("/projects/:id", TokenVerify, AdminCheck, async (req, res) => {
+router.delete("/:id", TokenVerify, AdminCheck, async (req, res) => {
   try {
     const { id } = req.params;
-    await deleteProject(req, res);
+
+    await deleteProject(id);
 
     // Invalidate cache after deletion
     await deleteCachedValue(`project:${id}`);
-    await deleteCachedValue('allProjects'); // Invalidate the list cache
+    await deleteCachedValue("allProjects");
 
-    res.status(200).json({ message: 'Project deleted successfully' });
+    return res.status(200).json({
+      success: true,
+      message: "Project deleted successfully",
+    });
   } catch (error) {
-    console.error('Error deleting project:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error deleting project:", error);
+
+    // Handle specific error cases
+    if (error.message === "Project not found") {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (
+      error.message === "Project has associated tasks and cannot be deleted"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    // Default error response
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete project",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 
-// Delete all projects for a user
-router.delete("/users/projects", TokenVerify, AdminCheck, async (req, res) => {
+router.delete("/delete/all", TokenVerify, AdminCheck, async (req, res) => {
   try {
-    await deleteAllUserProjects(req, res);
+    const result = await deleteAllUserProjects(req.user._id);
 
-    // Invalidate cache after deletion
-    await deleteCachedValue('allProjects'); // Invalidate the list cache
-
-    res.status(200).json({ message: 'All user projects deleted successfully' });
+    if (result.success) {
+      // Invalidate cache after successful deletion
+      await deleteCachedValue("allProjects");
+      return res.status(200).json(result);
+    } else {
+      return res.status(result.status).json({ message: result.message });
+    }
   } catch (error) {
-    console.error('Error deleting all user projects:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error deleting all user projects:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 

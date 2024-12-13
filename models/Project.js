@@ -48,6 +48,13 @@ const projectSchema = new Schema(
         ref: "Task",
       },
     ],
+    isArchived:{
+      type:Boolean,
+      default:false
+    },
+    activityLog:[{
+      type:String
+    }]
   },
   {
     timestamps: true,

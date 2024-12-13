@@ -78,6 +78,9 @@ const taskSchema = new mongoose.Schema(
         },
       }
     ],
+    activityLog:[{
+      type:String
+    }]
   },
   {
     timestamps: true,
