@@ -12,10 +12,6 @@ const userSchema = new Schema(
       required: true,
       index: true,
     },
-    id: {
-      type: String,
-      unique: true,
-    },
     email: {
       type: String,
       required: true,
@@ -37,6 +33,12 @@ const userSchema = new Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Project",
+      },
+    ],
+    organisation: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Organisation", // Organisation model
       },
     ],
     notifications: [
@@ -71,11 +73,13 @@ const userSchema = new Schema(
       type: String,
       enum: ["github", "google", "local"],
     },
-    totp_secret: {
-      type: String,
-    },
-    totp_qr_url: {
-      type: String,
+    topt: {
+      secret: {
+        type: String,
+      },
+      qr_url: {
+        type: String,
+      },
     },
     isActive: {
       type: Boolean,
@@ -84,16 +88,13 @@ const userSchema = new Schema(
     deactivatedAt: {
       type: Date,
     },
-    preferences: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Notification",
-      },
-      {
-        type: String,
-        enum: ["language", "theme"],
-      },
-    ],
+    preferences: {
+      language: { type: String, default: "en" },
+      theme: { type: String, enum: ["light", "dark"], default: "light" },
+    },
+    lastLogin: {
+      type: Date,
+    }, // Last login date
   },
   {
     timestamps: true,
@@ -105,7 +106,7 @@ userSchema.pre("save", async function (next) {
   const user = this;
   if (user.isModified("password")) {
     try {
-      user.password =  bcrypt.hash(user.password, 11);
+      user.password = bcrypt.hash(user.password, 11);
     } catch (err) {
       return next(err);
     }

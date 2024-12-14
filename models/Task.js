@@ -31,7 +31,7 @@ const taskSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "Task",
         index: true, // Index for faster lookups by dependencies
-      }
+      },
     ],
     projectId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -43,21 +43,38 @@ const taskSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Comment",
-      }
+      },
     ],
     subTasks: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "SubTask",
-      }
+      },
     ],
     users: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        index: true, // Index for faster lookups by users
-      }
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          index: true, // Index for faster lookups by users
+        },
+        role: {
+          type: String,
+          enum: ["Assignee", "Reviewer", "Observer"],
+          default: "Assignee",
+        },
+        status: {
+          type: String,
+          enum: ["Active", "Completed", "Pending"],
+          default: "Active",
+        },
+      },
     ],
+    sprint: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sprint",
+      index: true, // Index for faster lookups by sprint
+    },
     attachments: [
       {
         filename: {
@@ -76,11 +93,54 @@ const taskSchema = new mongoose.Schema(
           type: Date,
           default: Date.now,
         },
-      }
+        size: {
+          type: Number, // File size in bytes
+        },
+        uploadedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        status: {
+          type: String,
+          enum: ["Pending", "Approved", "Rejected"],
+          default: "Pending",
+        },
+      },
     ],
-    activityLog:[{
-      type:String
-    }]
+    dependencies: [
+      {
+        taskId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Task",
+          index: true, // Index for faster lookups by dependencies
+        },
+        relationship: {
+          type: String,
+          enum: ["Predecessor", "Successor"],
+          default: "Predecessor",
+        },
+      },
+    ],
+    activityLog: [
+      {
+        type: {
+          type: String, // "Status Changed", "Comment Added", etc.
+          required: true,
+        },
+        description: {
+          type: String, // A description of the activity
+        },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

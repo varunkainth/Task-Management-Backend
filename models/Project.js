@@ -10,6 +10,11 @@ const projectSchema = new Schema(
     description: {
       type: String,
     },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization", // Link to Organization
+      required: true,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -18,28 +23,22 @@ const projectSchema = new Schema(
     },
     members: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        index: true, // Index for faster lookups by members
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        role: {
+          type: String,
+          enum: ["Admin", "Manager", "Member", "Viewer"],
+          default: "Member",
+        },
       },
     ],
     invites: [
       {
-        email: {
-          type: String,
-          required: true,
-          index: true, // Index for faster lookups by email
-        },
-        status: {
-          type: String,
-          enum: ["Pending", "Accepted", "Rejected"],
-          default: "Pending",
-          index: true, // Index for faster filtering by status
-        },
-        sentAt: {
-          type: Date,
-          default: Date.now,
-        },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Invitation",
       },
     ],
     tasks: [
@@ -48,21 +47,50 @@ const projectSchema = new Schema(
         ref: "Task",
       },
     ],
-    isArchived:{
-      type:Boolean,
-      default:false
+    isArchived: {
+      type: Boolean,
+      default: false,
     },
-    activityLog:[{
-      type:String
-    }]
+    deadline: {
+      type: Date,
+    },
+    milestones: [
+      {
+        title: { type: String },
+        dueDate: { type: Date },
+        status: {
+          type: String,
+          enum: ["Not Started", "In Progress", "Completed"],
+        },
+      },
+    ],
+    status: {
+      type: String,
+      enum: ["Active", "Completed", "Archived"],
+      default: "Active",
+    },
+    activityLog: [
+      {
+        type: String,
+      },
+    ],
+    completionDate: {
+      type: Date,
+    },
+    sprints: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Sprint",
+      },
+    ],
   },
   {
     timestamps: true,
-    versionKey: false,
+    versionKey: true,
   }
 );
 
-projectSchema.index({ name: 1, createdBy: 1 }, { unique: true }); // Compound index if needed
+projectSchema.index({ name: 1, createdBy: 1 }, { unique: true });
 
 const Project = mongoose.model("Project", projectSchema);
 export default Project;

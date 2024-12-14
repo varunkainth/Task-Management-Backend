@@ -51,9 +51,29 @@ const subTaskSchema = new Schema(
         },
       },
     ],
-    activityLog:[{
-      type:String
-    }]
+    activityLog: [
+      {
+        type: String,
+      },
+    ],
+    assignedTo: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    completedAt: {
+      type: Date,
+    },
+    dependencies: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SubTask",
+      },
+    ],
+    timeSpent: {
+      type: Number, // Store in minutes, hours, etc.
+    },
   },
   {
     timestamps: true,
