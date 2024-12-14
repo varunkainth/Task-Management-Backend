@@ -1,12 +1,15 @@
 import cloudinary from "../config/Cloudinary.js";
 import Project from "../models/Project.js";
+import Sprint from "../models/Sprint.js";
 import Task from "../models/Task.js";
 import User from "../models/User.js";
 
 // Create a new task
 export const CreateTask = async (req, res) => {
   try {
-    const { title, description, priority, dueDate, projectId } = req.body;
+    const sprintId = req.params.id;
+    const { title, description, priority, dueDate, projectId, users,taskId,relationship } =
+      req.body;
     const attachments = req.files; // Assuming `req.files` contains multiple files
 
     if (!title) {
@@ -17,6 +20,12 @@ export const CreateTask = async (req, res) => {
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
+    if (sprintId) {
+      const sprint = await Sprint.findById(sprintId);
+      if (!sprint) {
+        return res.status(404).json({ message: "Sprint not found" });
+      }
+    }
 
     const newTaskData = {
       title,
@@ -25,20 +34,39 @@ export const CreateTask = async (req, res) => {
       dueDate: dueDate ? new Date(dueDate) : null,
       projectId: projectId || null,
       attachments: [],
+      sprint: sprintId,
+      users: {
+        userId: users.map((user) => user.userId),
+        role: users.map((user) => user.role),
+        status: users.map((user) => user.status),
+      },
+      dependencies:{
+        taskId:taskId,
+        relationship
+      }
     };
 
     if (attachments && Array.isArray(attachments)) {
-      const uploadedAttachments = await Promise.all(attachments.map(async (file) => {
-        const result = await cloudinary.uploader.upload(file.path);
-        return {
-          filename: file.originalname,
-          url: result.secure_url,
-          fileType: file.mimetype,
-        };
-      }));
+      const uploadedAttachments = await Promise.all(
+        attachments.map(async (file) => {
+          const result = await cloudinary.v2.uploader.upload(file.path);
+          return {
+            filename: file.originalname,
+            url: result.secure_url,
+            fileType: file.mimetype,
+            uploadedAt: result.created_at,
+            size: result.bytes,
+            uploadedBy: req.user._id,
+            status: "Pending",
+          };
+        })
+      );
 
       newTaskData.attachments = uploadedAttachments;
     }
+
+
+
 
     const newTask = new Task(newTaskData);
 
@@ -47,19 +75,35 @@ export const CreateTask = async (req, res) => {
       await project.save();
     }
 
+    if(sprintId){
+      const sprint = await Sprint.findById(sprintId);
+      sprint.tasks.push(newTask._id);
+      await sprint.save();
+
+    }
+
     const savedTask = await newTask.save();
-    return savedTask
+    return savedTask;
     // res.status(201).json({ message: "Task created successfully", task: savedTask });
   } catch (err) {
     console.error("Task Create Error:", err);
-    res.status(500).json({ message: "An error occurred while creating the task." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while creating the task." });
   }
 };
 
 // Get all tasks with optional filters
 export const getAllTask = async (req, res) => {
   try {
-    const { priority, dueDate, projectId, sortBy, page = 1, limit = 10 } = req.query;
+    const {
+      priority,
+      dueDate,
+      projectId,
+      sortBy,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
     const query = {};
     if (priority) query.priority = priority;
@@ -82,7 +126,9 @@ export const getAllTask = async (req, res) => {
     return tasks;
   } catch (err) {
     console.error("GET ALL TASK Error:", err);
-    res.status(500).json({ message: "An error occurred while fetching tasks." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching tasks." });
   }
 };
 
@@ -97,7 +143,9 @@ export const getTaskDetails = async (id) => {
     return task;
   } catch (err) {
     console.error("GET TASK DETAILS Error:", err);
-    res.status(500).json({ message: "An error occurred while fetching task details." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching task details." });
   }
 };
 
@@ -131,6 +179,9 @@ export const deleteTask = async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
+
+    await Project.find({tasks:taskId})
+
     res.status(200).json({ message: "Task deleted successfully" });
   } catch (err) {
     console.error("DELETE TASK Error:", err);
@@ -156,7 +207,9 @@ export const assignTask = async (req, res) => {
     res.status(200).json({ message: "Task assigned successfully", task });
   } catch (err) {
     console.error("ASSIGN TASK Error:", err);
-    res.status(500).json({ message: "An error occurred while assigning task." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while assigning task." });
   }
 };
 // Update task status
@@ -170,10 +223,14 @@ export const updateStatus = async (req, res) => {
     }
     task.status = status;
     await task.save();
-    res.status(200).json({ message: "Task status updated successfully", task: task });
+    res
+      .status(200)
+      .json({ message: "Task status updated successfully", task: task });
   } catch (err) {
     console.error("UPDATE STATUS Error:", err);
-    res.status(500).json({ message: "An error occurred while updating task status." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while updating task status." });
   }
 };
 
@@ -188,7 +245,9 @@ export const getTaskByUser = async (req, res) => {
     res.status(200).json({ tasks });
   } catch (err) {
     console.error("GET TASK BY USER Error:", err);
-    res.status(500).json({ message: "An error occurred while fetching tasks." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching tasks." });
   }
 };
 
@@ -203,7 +262,9 @@ export const getTaskByProject = async (req, res) => {
     res.status(200).json({ tasks });
   } catch (err) {
     console.error("GET TASK BY PROJECT Error:", err);
-    res.status(500).json({ message: "An error occurred while fetching tasks." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching tasks." });
   }
 };
 
@@ -219,14 +280,16 @@ export const addAttachmentsToTask = async (req, res) => {
     }
 
     if (newAttachments && Array.isArray(newAttachments)) {
-      const uploadedAttachments = await Promise.all(newAttachments.map(async (file) => {
-        const result = await cloudinary.v2.uploader.upload(file.path);
-        return {
-          filename: file.originalname,
-          url: result.secure_url,
-          fileType: file.mimetype,
-        };
-      }));
+      const uploadedAttachments = await Promise.all(
+        newAttachments.map(async (file) => {
+          const result = await cloudinary.v2.uploader.upload(file.path);
+          return {
+            filename: file.originalname,
+            url: result.secure_url,
+            fileType: file.mimetype,
+          };
+        })
+      );
 
       task.attachments = task.attachments.concat(uploadedAttachments);
     }
@@ -235,10 +298,11 @@ export const addAttachmentsToTask = async (req, res) => {
     res.status(200).json({ message: "Attachments added successfully", task });
   } catch (err) {
     console.error("ADD ATTACHMENTS Error:", err);
-    res.status(500).json({ message: "An error occurred while adding attachments." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while adding attachments." });
   }
 };
-
 
 // Remove an attachment from a task
 export const removeAttachmentFromTask = async (req, res) => {
@@ -251,7 +315,9 @@ export const removeAttachmentFromTask = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    const attachment = task.attachments.find(att => att._id.toString() === attachmentId);
+    const attachment = task.attachments.find(
+      (att) => att._id.toString() === attachmentId
+    );
     if (!attachment) {
       return res.status(404).json({ message: "Attachment not found" });
     }
@@ -260,13 +326,17 @@ export const removeAttachmentFromTask = async (req, res) => {
     await cloudinary.v2.uploader.destroy(attachment.publicId);
 
     // Remove attachment from task
-    task.attachments = task.attachments.filter(att => att._id.toString() !== attachmentId);
+    task.attachments = task.attachments.filter(
+      (att) => att._id.toString() !== attachmentId
+    );
 
     await task.save();
     res.status(200).json({ message: "Attachment removed successfully", task });
   } catch (err) {
     console.error("REMOVE ATTACHMENT Error:", err);
-    res.status(500).json({ message: "An error occurred while removing the attachment." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while removing the attachment." });
   }
 };
 
@@ -290,7 +360,9 @@ export const batchUpdateTasks = async (req, res) => {
     });
   } catch (err) {
     console.error("BATCH UPDATE TASKS Error:", err);
-    res.status(500).json({ message: "An error occurred while updating tasks." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while updating tasks." });
   }
 };
 
@@ -313,7 +385,9 @@ export const addTaskDependency = async (req, res) => {
     res.status(200).json({ message: "Dependency added successfully", task });
   } catch (err) {
     console.error("ADD TASK DEPENDENCY Error:", err);
-    res.status(500).json({ message: "An error occurred while adding dependency." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while adding dependency." });
   }
 };
 
@@ -322,7 +396,9 @@ export const updateTaskProgress = async (req, res) => {
     const { taskId, progress } = req.body;
 
     if (progress < 0 || progress > 100) {
-      return res.status(400).json({ message: "Progress must be between 0 and 100." });
+      return res
+        .status(400)
+        .json({ message: "Progress must be between 0 and 100." });
     }
 
     const task = await Task.findByIdAndUpdate(
@@ -338,7 +414,9 @@ export const updateTaskProgress = async (req, res) => {
     res.status(200).json({ message: "Task progress updated", task });
   } catch (err) {
     console.error("UPDATE TASK PROGRESS Error:", err);
-    res.status(500).json({ message: "An error occurred while updating progress." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while updating progress." });
   }
 };
 
@@ -362,7 +440,9 @@ export const reassignTask = async (req, res) => {
     res.status(200).json({ message: "Task reassigned successfully", task });
   } catch (err) {
     console.error("REASSIGN TASK Error:", err);
-    res.status(500).json({ message: "An error occurred while reassigning task." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while reassigning task." });
   }
 };
 
@@ -375,16 +455,23 @@ export const getTaskActivityLog = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    res.status(200).json({ message: "Task activity log retrieved", logs: task.activityLog });
+    res
+      .status(200)
+      .json({ message: "Task activity log retrieved", logs: task.activityLog });
   } catch (err) {
     console.error("GET TASK ACTIVITY LOG Error:", err);
-    res.status(500).json({ message: "An error occurred while fetching activity log." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching activity log." });
   }
 };
 
 export const getOverdueTasks = async (req, res) => {
   try {
-    const overdueTasks = await Task.find({ dueDate: { $lt: new Date() }, status: { $ne: "Completed" } });
+    const overdueTasks = await Task.find({
+      dueDate: { $lt: new Date() },
+      status: { $ne: "Completed" },
+    });
 
     if (!overdueTasks.length) {
       return res.status(404).json({ message: "No overdue tasks found" });
@@ -393,8 +480,8 @@ export const getOverdueTasks = async (req, res) => {
     res.status(200).json({ overdueTasks });
   } catch (err) {
     console.error("GET OVERDUE TASKS Error:", err);
-    res.status(500).json({ message: "An error occurred while fetching overdue tasks." });
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching overdue tasks." });
   }
 };
-
-

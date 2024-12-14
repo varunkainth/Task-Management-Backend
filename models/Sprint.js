@@ -11,7 +11,9 @@ const sprintSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    endDate: Date,
+    endDate: {
+      type: Date,
+    },
     status: {
       type: String,
       enum: ["Not Started", "In Progress", "Completed"],
@@ -34,6 +36,14 @@ const sprintSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+sprintSchema.pre("save", function (next) {
+  if (this.startDate && !this.endDate) {
+    this.endDate = new Date(this.startDate);
+    this.endDate.setDate(this.endDate.getDate() + 14);
+  }
+  next();
+});
 
 const Sprint = mongoose.model("Sprint", sprintSchema);
 export default Sprint;
