@@ -1,3 +1,4 @@
+import cloudinary from "../config/Cloudinary.js";
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
 import User from "../models/User.js";
@@ -28,7 +29,7 @@ export const CreateTask = async (req, res) => {
 
     if (attachments && Array.isArray(attachments)) {
       const uploadedAttachments = await Promise.all(attachments.map(async (file) => {
-        const result = await cloudinary.v2.uploader.upload(file.path);
+        const result = await cloudinary.uploader.upload(file.path);
         return {
           filename: file.originalname,
           url: result.secure_url,

@@ -1,11 +1,16 @@
 import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import User from "../models/User.js";
+import Organization from "../models/Organisation.js";
+import Invitation from "../models/Invitation.js";
+import Task from "../models/Task.js";
+import Comment from "../models/Comment.js";
 
 export const ProjectCreate = async (req, res) => {
   try {
     const { name, description } = req.body;
     const createdBy = req.user._id;
+    const orgId = req.id;
 
     if (!name || !createdBy) {
       return res.status(400).json({ message: "Name and creator are required" });
@@ -15,6 +20,7 @@ export const ProjectCreate = async (req, res) => {
       name,
       description,
       createdBy,
+      organizationId: orgId,
     });
 
     await project.save();
@@ -29,8 +35,17 @@ export const ProjectCreate = async (req, res) => {
       { new: true }
     );
 
+    await Organization.findByIdAndUpdate(
+      orgId,
+      {
+        $push: { projects: project._id },
+      },
+      { new: true }
+    );
+
     const populatedProject = await Project.findById(project._id)
       .populate("createdBy", "name")
+      .populate("organizationId")
       .exec();
 
     return populatedProject;
@@ -44,6 +59,7 @@ export const getAllProject = async () => {
   try {
     const projects = await Project.find()
       .populate("createdBy", "name")
+      .populate("organizationId")
       .populate("tasks");
 
     return projects;
@@ -58,6 +74,7 @@ export const getProjectById = async (id) => {
     const projectId = id;
     const project = await Project.findById(projectId)
       .populate("createdBy", "name")
+      .populate("organizationId")
       .populate("tasks");
 
     if (!project) {
@@ -121,6 +138,17 @@ export const deleteProject = async (projectId) => {
     { projects: projectId },
     { $pull: { projects: projectId } }
   );
+
+  await Invitation.deleteMany({ projectId });
+  await Task.deleteMany({ projectId });
+  await Comment.deleteMany({ projectId });
+  await Organization.deleteMany({
+    projects: {
+      $elemMatch: {
+        projectId: projectId,
+      },
+    },
+  });
 
   return {
     success: true,
@@ -284,8 +312,9 @@ export const getProjectStats = async (projectId) => {
   }
 
   const totalTasks = project.tasks.length;
-  const completedTasks = project.tasks.filter((task) => task.isCompleted)
-    .length;
+  const completedTasks = project.tasks.filter(
+    (task) => task.isCompleted
+  ).length;
 
   return {
     totalTasks,
@@ -312,4 +341,3 @@ export const cloneProject = async (projectId) => {
 
   return clonedProject;
 };
-
