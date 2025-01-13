@@ -30,7 +30,7 @@ app.use(
     origin: [
       "*",
       "https://cautious-computing-machine-q9654rrwj74h4p67-3000.app.github.dev",
-      "https://solid-journey-w9xq566wq9439rxp-3000.app.github.dev"
+      "https://solid-journey-w9xq566wq9439rxp-3000.app.github.dev",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     // allowedHeaders: ["Content-Type", "Authorization"],
@@ -60,6 +60,7 @@ import ProjectRoutes from "./routes/project.js";
 import SubTaskRoutes from "./routes/subTask.js";
 import InvitationRoutes from "./routes/invitation.js";
 import CommentRoutes from "./routes/comment.js";
+import OrganisationRoutes from "./routes/organistation.js";
 
 // Mount Routes
 app.use("/api/auth", AuthRoutes);
@@ -69,6 +70,7 @@ app.use("/api/projects", ProjectRoutes);
 app.use("/api/subtasks", SubTaskRoutes);
 app.use("/api/invitation", InvitationRoutes);
 app.use("/api/comments", CommentRoutes);
+app.use("/api/org", OrganisationRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

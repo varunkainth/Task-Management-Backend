@@ -10,17 +10,16 @@ class TOTP_GEN {
       name: "Task Management",
     });
 
-   
-    const qrCodeUrl = qrcode
+    const qr_url = qrcode
       .toDataURL(secret.otpauth_url)
       .then((data_url) => {
-        return { secret: secret.base32, qrCodeUrl: data_url };
+        return { secret: secret.base32, qr_url: data_url };
       })
       .catch((err) => {
         throw new Error("Error generating QR code:", err);
       });
 
-    return qrCodeUrl;
+    return qr_url;
   }
 
   // Verify the TOTP code
@@ -29,7 +28,7 @@ class TOTP_GEN {
       secret: userSecret,
       encoding: "base32",
       token: token,
-      window: 1, 
+      window: 1,
     });
   }
 }

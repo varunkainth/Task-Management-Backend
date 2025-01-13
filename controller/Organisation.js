@@ -1,5 +1,5 @@
-import cloudinary from "../config/Cloudinary";
-import Organization from "../models/Organisation";
+import cloudinary from "../config/Cloudinary.js";
+import Organization from "../models/Organisation.js";
 
 export const OrganizationCreate = async (req) => {
   const { name, description } = req.body;
@@ -15,6 +15,7 @@ export const OrganizationCreate = async (req) => {
   const newOrganization = new Organization({
     name,
     description,
+    admin: req.user._id,
   });
   try {
     if (urlPath) {
@@ -23,6 +24,7 @@ export const OrganizationCreate = async (req) => {
     const savedOrganization = await newOrganization.save();
     return savedOrganization;
   } catch (error) {
+    console.log(error);
     return { error: "Error creating organization" };
   }
 };
@@ -62,7 +64,7 @@ export const OrganizationDelete = async (req) => {
     if (!deletedOrganization) {
       return { error: "Organization not found" };
     }
-    return deletedOrganization;
+    return "Delete SuccessFully ";
   } catch (error) {
     return { error: "Error deleting organization" };
   }
@@ -70,47 +72,105 @@ export const OrganizationDelete = async (req) => {
 
 export const AddMembersToOrg = async (req) => {
   try {
-    const { id, members } = req.body;
+    const { id } = req.params;
+    const { members } = req.body;
+
+    // Validate input
+    if (!Array.isArray(members) || members.some(member => !member._id)) {
+      return { error: "Invalid members data" };
+    }
+
+    // Find the organization
     const org = await Organization.findById(id);
     if (!org) {
       return { error: "Organization not found" };
     }
-    const membersToAdd = members.map((member) => member._id);
+
+    // Convert existing members to a Set for efficient lookup
+    const existingMemberIds = new Set(org.members.map(member => member.toString()));
+
+    // Separate new and already added members
+    const membersToAdd = [];
+    const alreadyAddedMembers = [];
+
+    members.forEach(member => {
+      const memberId = member._id.toString();
+
+      if (existingMemberIds.has(memberId)) {
+        alreadyAddedMembers.push(member);
+      } else {
+        membersToAdd.push(memberId);
+        existingMemberIds.add(memberId);
+      }
+    });
+
+    // Update organization with new members
     const updatedOrg = await Organization.findByIdAndUpdate(
       id,
-      { members: [...org.members, ...membersToAdd] },
+      { $addToSet: { members: { $each: membersToAdd } } },
       { new: true }
     );
+
     if (!updatedOrg) {
-      return { error: "Error adding members to organization" };
+      return { error: "Error updating the organization with new members." };
     }
-    return updatedOrg;
+
+    // Populate members with selected fields
+    const populatedOrg = await updatedOrg.populate("members", "name email");
+
+    return {
+      organization: populatedOrg,
+      addedMembers: membersToAdd.length,
+      alreadyAddedMembers: alreadyAddedMembers.map(member => ({
+        _id: member._id,
+        name: member.name
+      }))
+    };
   } catch (error) {
-    return { error: "Error adding members to organization" };
+    console.error("Error in AddMembersToOrg:", error);
+    return { error: "Internal server error. Please try again later." };
   }
 };
 
+
 export const RemoveMembersFromOrg = async (req) => {
   try {
-    const { id, members } = req.body;
-    const org = await Organization.findById(id);
-    if (!org) {
-      return { error: "Organization not found" };
+    const { id } = req.params;
+    const { members } = req.body;
+
+    // Validate input
+    if (!Array.isArray(members) || members.some((member) => !member._id)) {
+      return { error: "Invalid members data" };
     }
+
+    // Extract member IDs to remove
     const membersToRemove = members.map((member) => member._id);
+
+    // Update organization to remove members
     const updatedOrg = await Organization.findByIdAndUpdate(
       id,
-      { members: org.members.filter((m) => !membersToRemove.includes(m._id)) },
+      { $pull: { members: { $in: membersToRemove } } },
       { new: true }
     );
+
     if (!updatedOrg) {
       return { error: "Error removing members from organization" };
     }
-    return updatedOrg;
+
+    // Populate updated organization with selected member fields
+    const populatedOrg = await updatedOrg.populate("members", "name email");
+
+    return {
+      message: "Members removed successfully",
+      organization: populatedOrg,
+      removedMembers: membersToRemove,
+    };
   } catch (error) {
-    return { error: "Error removing members from organization" };
+    console.error("Error in RemoveMembersFromOrg:", error);
+    return { error: "Internal server error. Please try again later." };
   }
 };
+
 
 export const GetOrgMembers = async (req) => {
   try {

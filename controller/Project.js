@@ -7,51 +7,56 @@ import Task from "../models/Task.js";
 import Comment from "../models/Comment.js";
 
 export const ProjectCreate = async (req, res) => {
-  try {
-    const { name, description } = req.body;
-    const createdBy = req.user._id;
-    const orgId = req.id;
-
-    if (!name || !createdBy) {
-      return res.status(400).json({ message: "Name and creator are required" });
+  
+  if (req.params.id) {
+    try {
+      const { name, description } = req.body;
+      const createdBy = req.user._id;
+      const orgId = req.params.id;
+  
+      if (!name || !createdBy) {
+        return res.status(400).json({ message: "Name and creator are required" });
+      }
+  
+      const project = new Project({
+        name,
+        description,
+        createdBy,
+        organizationId: orgId,
+      });
+  
+      await project.save();
+  
+      // Update user with the new project
+      await User.findByIdAndUpdate(
+        createdBy,
+        {
+          $push: { projects: project._id },
+          role: "Admin",
+        },
+        { new: true }
+      );
+  
+      await Organization.findByIdAndUpdate(
+        orgId,
+        {
+          $push: { projects: project._id },
+        },
+        { new: true }
+      );
+  
+      const populatedProject = await Project.findById(project._id)
+        .populate("createdBy", "name")
+        .populate("organizationId")
+        .exec();
+  
+      return populatedProject;
+    } catch (error) {
+      console.error("Project Create Error:", error);
+      throw new Error(error);
     }
-
-    const project = new Project({
-      name,
-      description,
-      createdBy,
-      organizationId: orgId,
-    });
-
-    await project.save();
-
-    // Update user with the new project
-    await User.findByIdAndUpdate(
-      createdBy,
-      {
-        $push: { projects: project._id },
-        role: "Admin",
-      },
-      { new: true }
-    );
-
-    await Organization.findByIdAndUpdate(
-      orgId,
-      {
-        $push: { projects: project._id },
-      },
-      { new: true }
-    );
-
-    const populatedProject = await Project.findById(project._id)
-      .populate("createdBy", "name")
-      .populate("organizationId")
-      .exec();
-
-    return populatedProject;
-  } catch (error) {
-    console.error("Project Create Error:", error);
-    throw new Error(error);
+  } else {
+    return  "Organization ID is required" 
   }
 };
 

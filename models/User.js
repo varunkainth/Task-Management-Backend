@@ -73,7 +73,7 @@ const userSchema = new Schema(
       type: String,
       enum: ["github", "google", "local"],
     },
-    topt: {
+    totp: {
       secret: {
         type: String,
       },

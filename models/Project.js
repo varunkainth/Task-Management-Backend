@@ -86,7 +86,6 @@ const projectSchema = new Schema(
   },
   {
     timestamps: true,
-    versionKey: true,
   }
 );
 

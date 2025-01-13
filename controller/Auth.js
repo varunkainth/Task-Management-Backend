@@ -32,7 +32,7 @@ export const userRegister = async (req, res) => {
     }
 
     // Generate profile picture URL
-    const label = gender === "male" ? "boy" : "girl";
+    const label = gender === "Male" ? "boy" : "girl";
     const profilePic = `https://avatar.iran.liara.run/public/${label}?username=${name.replace(
       /\s+/g,
       ""
@@ -42,7 +42,7 @@ export const userRegister = async (req, res) => {
       gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
 
     // Generate user ID
-    const id = generateNumericId(dob, phoneNumber, Date.now());
+    // const id = generateNumericId(dob, phoneNumber, Date.now());
 
     // Hash the password
     const salt = await bcrypt.genSalt(10);
@@ -51,7 +51,7 @@ export const userRegister = async (req, res) => {
     // TOTP
     const secret = new TOTP_GEN();
     const totp = await secret.generateTOTP();
-    // console.log("totp", totp);
+    // console.log("totp\n", totp);
 
     // Create and save user
     const user = new User({
@@ -62,10 +62,9 @@ export const userRegister = async (req, res) => {
       gender: formattedGender,
       dateOfBirth: dob,
       profilePic,
-      id,
       provider: "local",
-      totp_secret: totp.secret,
-      totp_qr_url: totp.qrCodeUrl,
+      totp
+      
     });
     await user.save();
 
@@ -657,12 +656,12 @@ export const changeUserPassword = async (req, res) => {
     const user = await User.findById(userId);
 
     // Verify current password
-    const isMatch =  bcrypt.compare(currentPassword, user.password);
+    const isMatch = bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Current password is incorrect" });
     }
 
-    user.password = newPassword
+    user.password = newPassword;
     await user.save();
 
     res.status(200).json({ message: "Password changed successfully" });
