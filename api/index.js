@@ -17,8 +17,8 @@ const startServer = async () => {
     await DataBaseConnection();
     console.log("Database connected");
 
-    await connectToDatabase()
-    console.log("PostgreSQL connected");
+    // await connectToDatabase()
+    // console.log("PostgreSQL connected");
 
     // Ensure Redis is connected
     if (!redisClient.isOpen) {
@@ -68,8 +68,8 @@ const shutdown = async () => {
     await DataBaseConnectionClose(); // Assuming you have a close method
     console.log("Database connection closed");
 
-    await closeConnection()
-    console.log("PostgreSql Connection closed");
+    // await closeConnection()
+    // console.log("PostgreSql Connection closed");
 
     process.exit(0);
   } catch (err) {

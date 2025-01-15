@@ -27,7 +27,7 @@ router.post("/", TokenVerify, async (req, res) => {
 
     return res
       .status(201)
-      .json({ newProject, message: "Project created successfully" });
+      .json({ newProject});
   } catch (error) {
     console.error("Error creating project:", error);
     return res.status(500).json({ message: "Failed to create project" });

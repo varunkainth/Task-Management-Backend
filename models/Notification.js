@@ -2,50 +2,52 @@ import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema(
   {
-    userId: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "User", // Who the notification is for
       required: true,
-      index: true, // Index for faster lookups by userId
+    },
+    message: {
+      type: String,
+      required: true, // Notification message (can be dynamic based on event)
     },
     type: {
       type: String,
-      enum: ["Task Assignment", "Project Update", "Invitation"],
+      enum: [
+        "Task Assigned",
+        "Task Updated",
+        "Project Created",
+        "Project Archived",
+        "Invite Received",
+        "Invite Accepted",
+        "Mentioned",
+        "Reminder",
+        "System Update",
+      ], // Type of notification
       required: true,
-      index: true, // Index for faster filtering by type
     },
-    message: { 
-      type: String, 
-      required: true 
+    referenceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      refPath: "referenceModel", // Reference to the object related to this notification
+      required: true,
+    },
+    referenceModel: {
+      type: String,
+      enum: ["Task", "Project", "Invite", "User"], // Model this notification relates to (task, project, etc.)
+      required: true,
     },
     read: {
       type: Boolean,
-      default: false,
-      index: true, // Index for faster filtering by read status
+      default: false, // Whether the notification has been read or not
     },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-      index: true, // Index for faster lookups by timestamp
+    priority: {
+      type: String,
+      enum: ["High", "Medium", "Low"],
+      default: "Medium",
     },
-    projectId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Project",
-      index: true, // Index for faster lookups by projectId
-    },
-    taskId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Task",
-      index: true, // Index for faster lookups by taskId
-    },
-    invitationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Invitation",
-      index: true, // Index for faster lookups by invitationId
-    }
   },
   {
-    versionKey: false,
+    timestamps: true,
   }
 );
 
