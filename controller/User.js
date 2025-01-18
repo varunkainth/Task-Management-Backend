@@ -4,28 +4,33 @@ import { uploadImage } from "../utils/UploadToCloudinary.js";
 
 export const updateDetails = async (req, res) => {
   try {
-    const { name, email, phoneNumber, dob, gender } = req.body;
+    const { name, phoneNumber, dob, gender } = req.body;
     const updates = {};
 
     // Validate input
     if (!name && !email && !phoneNumber && !dob && !gender) {
-      return res.status(400).json({ message: "Please provide at least one field to update" });
+      return res
+        .status(400)
+        .json({ message: "Please provide at least one field to update" });
     }
 
     // Create an object with the fields to update
     if (name) updates.name = name;
-    if (email) updates.email = email;
     if (phoneNumber) updates.phoneNumber = phoneNumber;
     if (dob) updates.dateOfBirth = dob;
     if (gender) updates.gender = gender;
 
     // Update the user details
-    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select('-password');
+    const user = await User.findByIdAndUpdate(req.user._id, updates, {
+      new: true,
+    }).select("-password");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ message: "User details updated successfully", user });
+    res
+      .status(200)
+      .json({ message: "User details updated successfully", user });
   } catch (err) {
     console.error("User Update Error:", err);
     res.status(500).json({ message: "Failed to update user details" });
@@ -37,7 +42,9 @@ export const updatePassword = async (req, res) => {
     const { oldPassword, newPassword } = req.body;
 
     if (!oldPassword || !newPassword) {
-      return res.status(400).json({ message: "Please provide both old and new passwords" });
+      return res
+        .status(400)
+        .json({ message: "Please provide both old and new passwords" });
     }
 
     const user = await User.findById(req.user._id);
@@ -51,7 +58,9 @@ export const updatePassword = async (req, res) => {
     }
 
     if (newPassword === oldPassword) {
-      return res.status(400).json({ message: "New password must be different from the old password" });
+      return res.status(400).json({
+        message: "New password must be different from the old password",
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -69,7 +78,9 @@ export const updatePassword = async (req, res) => {
 export const updateProfilePic = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: "Please upload a profile picture" });
+      return res
+        .status(400)
+        .json({ message: "Please upload a profile picture" });
     }
 
     const profilePicPath = req.file.path;
@@ -86,7 +97,10 @@ export const updateProfilePic = async (req, res) => {
     user.profilePic = result.url;
     await user.save();
 
-    res.status(200).json({ message: "Profile picture updated successfully", profilePic: result.url });
+    res.status(200).json({
+      message: "Profile picture updated successfully",
+      profilePic: result.url,
+    });
   } catch (err) {
     console.error("Update Profile Pic Error:", err);
     res.status(500).json({ message: "Failed to update profile picture" });
@@ -123,18 +137,61 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-export const getUserDetails = async (req, res) => {
+export const getUserDetailsById = async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await User.findById(userId).select("-password");
+    console.log(user);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json(user);
+    return user;
   } catch (err) {
     console.error("Get User Details Error:", err);
-    res.status(500).json({ message: "Failed to retrieve user details" });
+    return { message: "Failed to retrieve user details" };
   }
 };
+
+export const getUserDetail = async (req) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId).select("-password");
+    console.log(user);
+    if (!user) {
+      return { message: "User not found" };
+    }
+    return user;
+  } catch (err) {
+    console.error("Get User Details Error:", err);
+    return { message: "Failed to retrieve user details" };
+  }
+};
+
+export const updateUserPreferences = async (req, res) => {
+  try {
+    const { notifications, theme, language } = req.body;
+    const userId = req.user._id;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        preferences: [
+          { key: "notifications", value: notifications },
+          { key: "theme", value: theme },
+          { key: "language", value: language },
+        ],
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      message: "Preferences updated",
+      preferences: updatedUser.preferences,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update preferences" });
+  }
+};
+

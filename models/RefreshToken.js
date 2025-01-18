@@ -18,7 +18,7 @@ const refreshTokenSchema = new mongoose.Schema(
   }
 );
 
-
+// create a method to check the hashToken 
 
 const RefreshTokenModel = mongoose.model("RefreshToken", refreshTokenSchema);
 export default RefreshTokenModel;

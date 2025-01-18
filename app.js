@@ -64,7 +64,7 @@ import OrganisationRoutes from "./routes/organistation.js";
 
 // Mount Routes
 app.use("/api/auth", AuthRoutes);
-app.use("/api/users", UserRoutes);
+app.use("/api/", UserRoutes);
 app.use("/api/tasks", TaskRoutes);
 app.use("/api/projects", ProjectRoutes);
 app.use("/api/subtasks", SubTaskRoutes);

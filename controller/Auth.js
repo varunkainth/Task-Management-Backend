@@ -7,12 +7,14 @@ import bcrypt from "bcryptjs";
 import admin from "firebase-admin";
 import { HttpStatusCodes } from "../utils/response.js";
 import TOTP_GEN from "../utils/TotpGen.js";
+import { sendEmail } from "../utils/SendEmail.js";
+import { getResetPasswordEmailHtml } from "../utils/Emails.js";
 
 export const userRegister = async (req, res) => {
   try {
     const { name, password, email, phoneNumber, gender, dob } = req.body;
     // print all values
-    // console.log(name, password, email, phoneNumber, gender, dob);
+    console.log(name, password, email, phoneNumber, gender, dob);
 
     // Validate input
     if (
@@ -25,11 +27,18 @@ export const userRegister = async (req, res) => {
 
     // Check if user already exists
     const existUser = await User.findOne({ $or: [{ email }, { phoneNumber }] });
+    
     if (existUser) {
+
+      console.log(existUser);
       return res
         .status(HttpStatusCodes.CONFLICT.code)
         .json({ message: "User already exists" });
     }
+
+    
+
+    console.log("User does not exist");
 
     // Generate profile picture URL
     const label = gender === "Male" ? "boy" : "girl";
@@ -63,8 +72,7 @@ export const userRegister = async (req, res) => {
       dateOfBirth: dob,
       profilePic,
       provider: "local",
-      totp
-      
+      totp,
     });
     await user.save();
 
@@ -72,42 +80,42 @@ export const userRegister = async (req, res) => {
     const accessToken = await JWTGen({
       Id: user._id,
       Role: "Member",
-      Time: "30d",
+      Time: "15m",
     });
     const refreshToken = await JWTGen({
       Id: user._id,
       Role: "Member",
-      Time: "30d",
+      Time: "60d",
     });
 
-    // Hash refresh token
-    const hashedRefreshToken = await bcrypt.hash(String(refreshToken), 11);
-    console.log(hashedRefreshToken);
     // Save refresh token in the database
     await RefreshTokenModel.create({
       userId: user._id,
-      token: hashedRefreshToken,
-      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      token: refreshToken,
+      expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000,
     });
+
+    console.log("User created successfully");
 
     // Send response
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 60 * 24 * 60 * 60 * 1000,
       sameSite: "strict",
       secure: true,
     });
     res.header("Authorization", `Bearer ${accessToken}`);
-    res.status(HttpStatusCodes.OK.code).json({
+    return res.status(200).json({
       message: "User created successfully",
       user: { ...user._doc, password: undefined, totp_secret: undefined }, // Exclude password from response
-      token: accessToken,
+      token: refreshToken,
     });
   } catch (err) {
     console.error("User Register Error:", err.message);
-    res
-      .status(HttpStatusCodes.INTERNAL_SERVER_ERROR.code)
-      .json({ message: "Failed to register user" });
+    return {
+      message: "Failed to register user",
+      status: HttpStatusCodes.INTERNAL_SERVER_ERROR.code,
+    };
   }
 };
 
@@ -126,40 +134,36 @@ export const userLogin = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    if (!user.isActive) {
+      user.isActive = true;
+      await user.save();
+    }
     // console.log("user",user)
     const isValidPassword = bcrypt.compare(password, user.password);
-    console.log(
-      user.password,
-      "valid password",
-      isValidPassword,
-      "Current Password",
-      password
-    );
+
     if (!isValidPassword) {
       return res.status(400).json({ message: "Invalid password" });
     }
 
     // Create tokens
     const accessToken = await JWTGen({
-      Time: "30d",
+      Time: "15m",
       Role: user.role,
       Id: user._id,
     });
     const refreshToken = await JWTGen({
-      Time: "30d",
+      Time: "60d",
       Role: user.role,
       Id: user._id,
     });
-
-    // Hash refresh token
-    const hashedRefreshToken = await bcrypt.hash(String(refreshToken), 11);
 
     // Update or create refresh token in the database
     await RefreshTokenModel.findOneAndUpdate(
       { userId: user._id },
       {
-        token: hashedRefreshToken,
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        token: refreshToken,
+        expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000,
       },
       { upsert: true }
     );
@@ -175,7 +179,7 @@ export const userLogin = async (req, res) => {
     res.status(200).json({
       message: "User logged in successfully",
       user: { ...user._doc, password: undefined, totp_secret: undefined },
-      token: accessToken,
+      token: refreshToken,
     });
   } catch (err) {
     console.error("User Login Error:", err);
@@ -218,9 +222,19 @@ export const createPasswordResetToken = async (req, res) => {
 
     const savedToken = await passwordResetToken.save();
 
+    
+
+    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${savedToken.token}`;
+
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset",
+      html: getResetPasswordEmailHtml(user.name, resetLink),
+    });
+
     res.status(201).json({
       message: "Password reset token created successfully",
-      token: savedToken,
+      passwordToken: savedToken.token,
     });
   } catch (error) {
     console.error("Create Password Reset Token Error:", error);
@@ -228,35 +242,35 @@ export const createPasswordResetToken = async (req, res) => {
   }
 };
 
-export const verifyPasswordResetToken = async (req, res) => {
-  try {
-    const { token } = req.body;
+// export const verifyPasswordResetToken = async (req, res) => {
+//   try {
+//     const { token } = req.body;
 
-    if (!token) {
-      return res.status(400).json({ message: "Token is required" });
-    }
+//     if (!token) {
+//       return res.status(400).json({ message: "Token is required" });
+//     }
 
-    const passwordResetToken = await PasswordResetToken.findOne({ token });
+//     const passwordResetToken = await PasswordResetToken.findOne({ token });
 
-    if (!passwordResetToken) {
-      return res.status(404).json({ message: "Invalid or expired token" });
-    }
+//     if (!passwordResetToken) {
+//       return res.status(404).json({ message: "Invalid or expired token" });
+//     }
 
-    if (passwordResetToken.used) {
-      return res.status(400).json({ message: "Token already used" });
-    }
+//     if (passwordResetToken.used) {
+//       return res.status(400).json({ message: "Token already used" });
+//     }
 
-    if (new Date() > passwordResetToken.expiresAt) {
-      return res.status(400).json({ message: "Token expired" });
-    }
+//     if (new Date() > passwordResetToken.expiresAt) {
+//       return res.status(400).json({ message: "Token expired" });
+//     }
 
-    // Token is valid, proceed with password reset logic
-    res.status(200).json({ message: "Token is valid" });
-  } catch (error) {
-    console.error("Verify Password Reset Token Error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
+//     // Token is valid, proceed with password reset logic
+//     res.status(200).json({ message: "Token is valid" });
+//   } catch (error) {
+//     console.error("Verify Password Reset Token Error:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
 
 export const usePasswordResetToken = async (req, res) => {
   try {
@@ -297,10 +311,10 @@ export const usePasswordResetToken = async (req, res) => {
     passwordResetToken.used = true;
     await passwordResetToken.save();
 
-    res.status(200).json({ message: "Password reset successfully" });
+   return { message: "Password reset successfully" };
   } catch (error) {
     console.error("Use Password Reset Token Error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return { message: "Internal Server Error" };
   }
 };
 
@@ -324,14 +338,19 @@ export const refreshToken = async (req, res) => {
 
     // Generate a new access token
     const newAccessToken = jwt.sign(
-      { userId: refreshToken.userId },
+      { userId: refreshToken.userId, role: refreshToken.role },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: "30d" }
+      { expiresIn: "15m" }
     );
+
+    expiry_time = new Date(Date.now() + 15 * 60 * 1000);
+
+    // send access Token through Headers
+    res.header("Authorization", `Bearer ${newAccessToken}`);
 
     res.status(200).json({
       message: "Token refreshed successfully",
-      accessToken: newAccessToken,
+      expiry_time: expiryTime.toISOString(),
     });
   } catch (error) {
     console.error("Refresh Token Error:", error);
@@ -366,6 +385,7 @@ export const revokeRefreshToken = async (req, res) => {
 export const GoogleSignup = async (req, res) => {
   try {
     const { id } = req.body;
+    console.log(id);
 
     if (!id) {
       return res.status(400).json({ message: "ID is required" });
@@ -383,28 +403,25 @@ export const GoogleSignup = async (req, res) => {
       const accessToken = await JWTGen({
         Id: user._id,
         Role: "Member",
-        Time: "30d",
+        Time: "15m",
       });
       const refreshToken = await JWTGen({
         Id: user._id,
         Role: "Member",
-        Time: "30d",
+        Time: "60d",
       });
-
-      // Hash the refresh token
-      const hashedRefreshToken = await bcrypt.hash(refreshToken, 11);
 
       // Save the hashed refresh token in the database
       await RefreshTokenModel.create({
         userId: user._id,
-        token: hashedRefreshToken,
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
+        token: refreshToken,
+        expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000, // 60 days
       });
 
       // Set cookies and headers
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 60 * 24 * 60 * 60 * 1000, // 60 days
         sameSite: "strict",
         secure: process.env.NODE_ENV === "production", // Use secure cookies only in production
       });
@@ -413,7 +430,7 @@ export const GoogleSignup = async (req, res) => {
       return res.status(200).json({
         message: "User already exists",
         user: { ...user._doc, password: undefined, totp_secret: undefined },
-        token: accessToken,
+        token: refreshToken,
       });
     }
 
@@ -421,7 +438,6 @@ export const GoogleSignup = async (req, res) => {
 
     const secret = new TOTP_GEN();
     const totp = await secret.generateTOTP();
-    console.log("totp", totp);
 
     // Create a new user
     const newUser = new User({
@@ -432,7 +448,7 @@ export const GoogleSignup = async (req, res) => {
       provider: "google",
       isVerified: true,
       totp_secret: totp.secret,
-      totp_qr_url: totp.qrCodeUrl,
+      totp_qr_url: totp.qr_url,
     });
 
     await newUser.save();
@@ -441,28 +457,25 @@ export const GoogleSignup = async (req, res) => {
     const accessToken = await JWTGen({
       Id: newUser._id,
       Role: "Member",
-      Time: "30d",
+      Time: "15m",
     });
     const refreshToken = await JWTGen({
       Id: newUser._id,
       Role: "Member",
-      Time: "30d",
+      Time: "60d",
     });
-
-    // Hash the refresh token
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 11);
 
     // Save the hashed refresh token in the database
     await RefreshTokenModel.create({
       userId: newUser._id,
-      token: hashedRefreshToken,
-      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
+      token: refreshToken,
+      expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000, // 60 days
     });
 
     // Set cookies and headers
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 60 * 24 * 60 * 60 * 1000, // 60 days
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production", // Use secure cookies only in production
     });
@@ -471,7 +484,7 @@ export const GoogleSignup = async (req, res) => {
     return res.status(201).json({
       message: "User created successfully",
       user: { ...newUser._doc, password: undefined, totp_secret: undefined },
-      token: accessToken,
+      token: refreshToken,
     });
   } catch (err) {
     console.error("Google Sign-Up Error:", err);
@@ -489,25 +502,23 @@ export const GithubSignUp = async (req, res) => {
       const accessToken = await JWTGen({
         Id: existingUser._id,
         Role: "Member",
-        Time: "30d",
+        Time: "15m",
       });
       const refreshToken = await JWTGen({
         Id: existingUser._id,
         Role: "Member",
-        Time: "30d",
+        Time: "60d",
       });
-
-      const hashedRefreshToken = await bcrypt.hash(refreshToken, 11);
 
       await RefreshTokenModel.create({
         userId: existingUser._id,
-        token: hashedRefreshToken,
+        token: refreshToken,
         expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
       });
 
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 60 * 24 * 60 * 60 * 1000, // 30 days
         sameSite: "strict",
       });
 
@@ -521,13 +532,13 @@ export const GithubSignUp = async (req, res) => {
           password: undefined,
           totp_secret: undefined,
         },
-        token: accessToken,
+        token: refreshToken,
       });
     } else {
       //TOTP
       const secret = new TOTP_GEN();
       const totp = await secret.generateTOTP();
-      console.log("totp", totp);
+      // console.log("totp", totp);
 
       const newUser = new User({
         email,
@@ -538,28 +549,28 @@ export const GithubSignUp = async (req, res) => {
         uid,
         isVerified: true,
         totp_secret: totp.secret,
-        totp_qr_url: totp.qrCodeUrl,
+        totp_qr_url: totp.qr_url,
       });
       await newUser.save();
       const accessToken = JWTGen({
         Id: newUser._id,
         Role: "Member",
-        Time: "30d",
+        Time: "15m",
       });
       const refreshToken = JWTGen({
         Id: newUser._id,
         Role: "Member",
-        Time: "30d",
+        Time: "60d",
       });
-      const hashedRefreshToken = await bcrypt.hash(refreshToken, 11);
+
       await RefreshTokenModel.create({
         userId: newUser._id,
-        token: hashedRefreshToken,
+        token: refreshToken,
         expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
       });
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000,
+        maxAge: 60 * 24 * 60 * 60 * 1000,
         sameSite: "strict",
       });
       res.header("Authorization", `Bearer ${accessToken}`);
@@ -567,7 +578,7 @@ export const GithubSignUp = async (req, res) => {
       return res.status(201).json({
         message: "User Created Successfully",
         user: { ...newUser._doc, password: undefined, totp_secret: undefined },
-        token: accessToken,
+        token: refreshToken,
       });
     }
   } catch (err) {
@@ -578,13 +589,38 @@ export const GithubSignUp = async (req, res) => {
 
 export const VerifyEmail = async (req, res) => {
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
+    const { email, phone } = req.body;
+    // console.log(email, phone);
+    // Check if neither email nor phone is provided
+    if (!email && !phone) {
+      return res
+        .status(400)
+        .json({ message: "Email or Phone Number is required" });
+    }
+
+    // Check if both email and phone are provided (optional)
+    // if (email && phone) {
+    //   return res.status(400).json({ message: "Please provide either email or phone, not both" });
+    // }
+
+    // Check if email is in a valid format (you can use regex or a package for email validation)
+    if (email && !/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    // Find user by email or phone number
+    const user = await User.findOne({
+      $or: [{ email }, { phoneNumber: phone }],
+    });
+
+    // console.log(user);
     if (!user) {
       return res
         .status(404)
         .json({ message: "User Not Found", success: false });
     }
+
+    // console.log(user);
     return res.status(200).json({
       message: "Email Verified Successfully",
       success: true,
@@ -619,35 +655,6 @@ export const verifyTOTP = async (req, res) => {
   }
 };
 
-export const updateUserProfile = async (req, res) => {
-  try {
-    const { name, phoneNumber, gender, dateOfBirth } = req.body;
-    const userId = req.user._id; // Assuming authenticated middleware sets this
-
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        name,
-        phoneNumber,
-        gender,
-        dateOfBirth,
-      },
-      { new: true }
-    );
-
-    res.status(200).json({
-      message: "Profile updated successfully",
-      user: {
-        ...updatedUser._doc,
-        password: undefined,
-        totp_secret: undefined,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to update profile" });
-  }
-};
-
 export const changeUserPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -667,25 +674,6 @@ export const changeUserPassword = async (req, res) => {
     res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to change password" });
-  }
-};
-
-export const setupTwoFactorAuthentication = async (req, res) => {
-  try {
-    const user = req.user;
-    const secret = new TOTP_GEN();
-    const totp = await secret.generateTOTP();
-
-    user.totp_secret = totp.secret;
-    user.totp_qr_url = totp.qrCodeUrl;
-    await user.save();
-
-    res.status(200).json({
-      message: "Two-Factor Authentication Setup",
-      qrCodeUrl: totp.qrCodeUrl,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to setup 2FA" });
   }
 };
 
@@ -710,53 +698,10 @@ export const deactivateAccount = async (req, res) => {
       deactivatedAt: new Date(),
     });
 
+    await RefreshTokenModel.deleteMany({ userId });
+
     res.status(200).json({ message: "Account deactivated successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to deactivate account" });
-  }
-};
-
-export const reactivateAccount = async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email, isActive: false });
-
-    if (!user) {
-      return res.status(404).json({ message: "No deactivated account found" });
-    }
-
-    user.isActive = true;
-    user.deactivatedAt = undefined;
-    await user.save();
-
-    res.status(200).json({ message: "Account reactivated successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to reactivate account" });
-  }
-};
-
-export const updateUserPreferences = async (req, res) => {
-  try {
-    const { notifications, theme, language } = req.body;
-    const userId = req.user._id;
-
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        preferences: [
-          { key: "notifications", value: notifications },
-          { key: "theme", value: theme },
-          { key: "language", value: language },
-        ],
-      },
-      { new: true }
-    );
-
-    res.status(200).json({
-      message: "Preferences updated",
-      preferences: updatedUser.preferences,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to update preferences" });
   }
 };

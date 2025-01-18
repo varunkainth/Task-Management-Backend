@@ -1,7 +1,10 @@
 import { Router } from "express";
 import TokenVerify from "../middleware/TokenVerification.js";
 import {
+  changeUserPassword,
   createPasswordResetToken,
+  deactivateAccount,
+  disableTwoFactorAuthentication,
   GithubSignUp,
   GoogleSignup,
   refreshToken,
@@ -11,7 +14,6 @@ import {
   userLogout,
   userRegister,
   VerifyEmail,
-  verifyPasswordResetToken,
   verifyTOTP,
 } from "../controller/Auth.js";
 import {
@@ -57,16 +59,16 @@ router.post("/password-reset-token", async (req, res) => {
   }
 });
 
-// Verify a password reset token
-router.post("/verify-password-reset-token", async (req, res) => {
-  try {
-    const response = await verifyPasswordResetToken(req, res);
-    res.status(200).json(response);
-  } catch (error) {
-    console.error("Error verifying password reset token:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+// // Verify a password reset token
+// router.post("/verify-password-reset-token", async (req, res) => {
+//   try {
+//     const response = await verifyPasswordResetToken(req, res);
+//     res.status(200).json(response);
+//   } catch (error) {
+//     console.error("Error verifying password reset token:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// });
 
 // Use a password reset token to set a new password
 router.post("/use-password-reset-token", async (req, res) => {
@@ -113,7 +115,10 @@ router.post("/revoke-refresh-token", TokenVerify, async (req, res) => {
 
 router.route("/google").post(GoogleSignup);
 router.route("/github").post(GithubSignUp);
-router.route("/verify/email").post(VerifyEmail);
+router.route("/verify/email-phone").post(VerifyEmail);
 router.route("/verify/totp").post(TokenVerify, verifyTOTP);
+router.route("/change-password").post(TokenVerify, changeUserPassword);
+router.route("/disable/totp").post(TokenVerify, disableTwoFactorAuthentication);
+router.route("/deactivate-account").delete(TokenVerify, deactivateAccount);
 
 export default router;
