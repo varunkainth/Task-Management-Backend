@@ -27,16 +27,13 @@ export const userRegister = async (req, res) => {
 
     // Check if user already exists
     const existUser = await User.findOne({ $or: [{ email }, { phoneNumber }] });
-    
-    if (existUser) {
 
+    if (existUser) {
       console.log(existUser);
       return res
         .status(HttpStatusCodes.CONFLICT.code)
         .json({ message: "User already exists" });
     }
-
-    
 
     console.log("User does not exist");
 
@@ -57,9 +54,9 @@ export const userRegister = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // TOTP
-    const secret = new TOTP_GEN();
-    const totp = await secret.generateTOTP();
+    // // TOTP
+    // const secret = new TOTP_GEN();
+    // const totp = await secret.generateTOTP();
     // console.log("totp\n", totp);
 
     // Create and save user
@@ -72,7 +69,6 @@ export const userRegister = async (req, res) => {
       dateOfBirth: dob,
       profilePic,
       provider: "local",
-      totp,
     });
     await user.save();
 
@@ -222,8 +218,6 @@ export const createPasswordResetToken = async (req, res) => {
 
     const savedToken = await passwordResetToken.save();
 
-    
-
     const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${savedToken.token}`;
 
     await sendEmail({
@@ -311,7 +305,7 @@ export const usePasswordResetToken = async (req, res) => {
     passwordResetToken.used = true;
     await passwordResetToken.save();
 
-   return { message: "Password reset successfully" };
+    return { message: "Password reset successfully" };
   } catch (error) {
     console.error("Use Password Reset Token Error:", error);
     return { message: "Internal Server Error" };
@@ -434,10 +428,10 @@ export const GoogleSignup = async (req, res) => {
       });
     }
 
-    //TOTP
+    // //TOTP
 
-    const secret = new TOTP_GEN();
-    const totp = await secret.generateTOTP();
+    // const secret = new TOTP_GEN();
+    // const totp = await secret.generateTOTP();
 
     // Create a new user
     const newUser = new User({
@@ -447,8 +441,6 @@ export const GoogleSignup = async (req, res) => {
       profilePic: picture,
       provider: "google",
       isVerified: true,
-      totp_secret: totp.secret,
-      totp_qr_url: totp.qr_url,
     });
 
     await newUser.save();
@@ -535,10 +527,10 @@ export const GithubSignUp = async (req, res) => {
         token: refreshToken,
       });
     } else {
-      //TOTP
-      const secret = new TOTP_GEN();
-      const totp = await secret.generateTOTP();
-      // console.log("totp", totp);
+      // //TOTP
+      // const secret = new TOTP_GEN();
+      // const totp = await secret.generateTOTP();
+      // // console.log("totp", totp);
 
       const newUser = new User({
         email,
@@ -548,8 +540,6 @@ export const GithubSignUp = async (req, res) => {
         provider: "github",
         uid,
         isVerified: true,
-        totp_secret: totp.secret,
-        totp_qr_url: totp.qr_url,
       });
       await newUser.save();
       const accessToken = JWTGen({
@@ -665,15 +655,40 @@ export const changeUserPassword = async (req, res) => {
     // Verify current password
     const isMatch = bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Current password is incorrect" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Current password is incorrect" });
     }
 
     user.password = newPassword;
     await user.save();
 
-    res.status(200).json({ message: "Password changed successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Password changed successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to change password" });
+  }
+};
+
+export const enableTwoFactorAuth = async (req, res) => {
+  try {
+    const user = req.user;
+
+    const secret = new TOTP_GEN();
+    const totp = await secret.generateTOTP();
+
+    user.totp = totp;
+    await user.save();
+    return res.status(200).json({
+      message: "You have successfully Enable the Two Step Authentication",
+      user: {
+        totp: user.totp.secret,
+        totp_qr_url: user.totp.qr_url,
+      },
+    });
+  } catch (error) {
+    console.log("error in enable the Two Step Auth in Auth Controller ", error);
   }
 };
 

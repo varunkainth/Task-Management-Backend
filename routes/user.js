@@ -4,9 +4,9 @@ import {
   getAllUsers,
   getUserDetail,
   updateDetails,
-  updatePassword,
   updateProfilePic,
   getUserDetailsById,
+  updateUserPreferences,
 } from "../controller/User.js";
 import TokenVerify from "../middleware/TokenVerification.js";
 import upload from "../middleware/multer.js";
@@ -30,21 +30,6 @@ router.put("/users/update", TokenVerify, async (req, res) => {
     res
       .status(500)
       .json({ message: "An error occurred while updating user details." });
-  }
-});
-
-// Update user password (Requires authentication)
-router.put("/users/update-password", TokenVerify, async (req, res) => {
-  try {
-    const response = await updatePassword(req, res);
-    const userId = req.user._id;
-    await deleteCachedValue(`user:${userId}:details`); // Invalidate user details cache
-    res.status(200).json(response);
-  } catch (error) {
-    console.error("Error updating user password:", error);
-    res
-      .status(500)
-      .json({ message: "An error occurred while updating user password." });
   }
 });
 
@@ -84,7 +69,7 @@ router.delete("/users/delete", TokenVerify, async (req, res) => {
 });
 
 // Get all users (Requires authentication, optionally restricted to admin role)
-router.get("/users", TokenVerify, async (req, res) => {
+router.get("/users/get-al", TokenVerify, async (req, res) => {
   try {
     const cacheKey = "allUsers";
     const cachedUsers = await getCachedValue(cacheKey);
@@ -95,7 +80,7 @@ router.get("/users", TokenVerify, async (req, res) => {
 
     const response = await getAllUsers(req, res);
     await cacheValue(cacheKey, JSON.stringify(response), 600); // Cache for 10 minutes
-    res.status(200).json(response);
+    // res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching all users:", error);
     res
@@ -166,5 +151,7 @@ router.get("/users/self", TokenVerify, async (req, res) => {
       .json({ message: "An error occurred while fetching user details." });
   }
 });
+
+router.post("/users/update/preferences", TokenVerify, updateUserPreferences);
 
 export default router;

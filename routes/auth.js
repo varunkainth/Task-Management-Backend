@@ -5,6 +5,7 @@ import {
   createPasswordResetToken,
   deactivateAccount,
   disableTwoFactorAuthentication,
+  enableTwoFactorAuth,
   GithubSignUp,
   GoogleSignup,
   refreshToken,
@@ -118,6 +119,7 @@ router.route("/github").post(GithubSignUp);
 router.route("/verify/email-phone").post(VerifyEmail);
 router.route("/verify/totp").post(TokenVerify, verifyTOTP);
 router.route("/change-password").post(TokenVerify, changeUserPassword);
+router.route("/enable/totp").post(TokenVerify, enableTwoFactorAuth);
 router.route("/disable/totp").post(TokenVerify, disableTwoFactorAuthentication);
 router.route("/deactivate-account").delete(TokenVerify, deactivateAccount);
 
