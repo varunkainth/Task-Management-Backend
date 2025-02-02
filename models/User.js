@@ -94,7 +94,30 @@ const userSchema = new Schema(
     },
     lastLogin: {
       type: Date,
-    }, // Last login date
+    },
+    socialMediaLinks: [
+      {
+        platform: {
+          type: String,
+          enum: [
+            "facebook",
+            "twitter",
+            "linkedin",
+            "instagram",
+            "github",
+            "other",
+          ],
+          required: true,
+        },
+        link: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
+    about: {
+      type: String,
+    },
   },
   {
     timestamps: true,

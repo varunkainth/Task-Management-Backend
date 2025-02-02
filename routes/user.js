@@ -24,12 +24,8 @@ router.put("/users/update", TokenVerify, async (req, res) => {
     const response = await updateDetails(req, res);
     const userId = req.user._id;
     await deleteCachedValue(`user:${userId}:details`); // Invalidate user details cache
-    res.status(200).json(response);
   } catch (error) {
     console.error("Error updating user details:", error);
-    res
-      .status(500)
-      .json({ message: "An error occurred while updating user details." });
   }
 });
 
